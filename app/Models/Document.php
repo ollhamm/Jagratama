@@ -32,6 +32,7 @@ class Document extends Model
         'current_step_order',
         'submitted_at',
         'completed_at',
+        'submitter_signature',
     ];
 
     protected function casts(): array

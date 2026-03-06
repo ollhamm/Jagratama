@@ -15,6 +15,10 @@ interface UserManagementRepositoryInterface
 
     public function update(User $user, array $data): bool;
 
+    public function hasActivity(User $user): bool;
+
+    public function delete(User $user): bool;
+
     public function deleteUserRoles(User $user): void;
 
     public function addRoleToUser(User $user, string $roleId, ?string $organizationId = null): void;

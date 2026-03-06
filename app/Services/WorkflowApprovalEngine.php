@@ -21,6 +21,7 @@ class WorkflowApprovalEngine
     public function __construct(
         private readonly WorkflowRepositoryInterface $workflows,
         private readonly ApprovalRepositoryInterface $approvals,
+        private readonly NotificationService $notifications,
     ) {
     }
 
@@ -67,6 +68,8 @@ class WorkflowApprovalEngine
                 'approved_at' => null,
             ]);
 
+            $this->notifications->notifyDocumentSubmitted($document, $firstStep->role_id);
+
             return $instance;
         });
     }
@@ -111,6 +114,7 @@ class WorkflowApprovalEngine
 
             if (! $nextStep) {
                 $this->completeDocument($document, $instance);
+                $this->notifications->notifyCompleted($document);
                 Log::info('dokumen_selesai', [
                     'document_id' => $document->id,
                     'approved_by' => $approver->id,
@@ -128,6 +132,8 @@ class WorkflowApprovalEngine
                 'notes' => null,
                 'approved_at' => null,
             ]);
+
+            $this->notifications->notifyApprovalPending($document, $nextStep->role_id);
 
             $instance->update([
                 'current_step_order' => $nextStep->step_order,
@@ -186,6 +192,8 @@ class WorkflowApprovalEngine
             $document->update([
                 'current_status' => DocumentStatus::REJECTED,
             ]);
+
+            $this->notifications->notifyRejected($document);
 
             Log::info('approval_dilakukan', [
                 'approval_id' => $approval->id,

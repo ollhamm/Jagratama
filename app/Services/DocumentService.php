@@ -75,7 +75,7 @@ class DocumentService
         });
     }
 
-    public function submit(Document $document, User $actor): void
+    public function submit(Document $document, User $actor, string $signatureValue): void
     {
         if ($document->current_status !== DocumentStatus::DRAFT) {
             throw new DomainException('Dokumen hanya bisa disubmit dari status DRAFT.');
@@ -84,6 +84,14 @@ class DocumentService
         if ($document->created_by !== $actor->id) {
             throw new DomainException('Hanya pengaju yang dapat submit dokumen.');
         }
+
+        if (blank($signatureValue)) {
+            throw new DomainException('Tanda tangan pengaju wajib diisi sebelum submit.');
+        }
+
+        $document->update([
+            'submitter_signature' => $signatureValue,
+        ]);
 
         $this->workflowEngine->submitDocument($document);
 

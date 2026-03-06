@@ -63,7 +63,15 @@ class DocumentRepository implements DocumentRepositoryInterface
 
     public function findByIdForUser(string $id, User $user): ?Document
     {
-        $query = Document::query()->with(['documentType', 'organization', 'creator', 'attachments', 'workflowInstances']);
+        $query = Document::query()->with([
+            'documentType',
+            'organization',
+            'creator',
+            'attachments',
+            'workflowInstances.workflow.steps.role',
+            'approvals.workflowStep.role',
+            'approvals.approver',
+        ]);
 
         if (! $this->hasGlobalAccess($user)) {
             $organizationIds = $this->organizationIds($user);

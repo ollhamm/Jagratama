@@ -6,6 +6,7 @@ use App\Enums\OrganizationType;
 use App\Models\DocumentType;
 use App\Models\Role;
 use App\Models\Workflow;
+use App\Models\WorkflowStep;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
@@ -18,28 +19,14 @@ class WorkflowSeeder extends Seeder
     {
         $roles = Role::query()->get()->keyBy('code');
 
-        $organizationLeaderRole = [
-            OrganizationType::HMPS->value => 'KETUA_HMPS',
-            OrganizationType::HMJ->value => 'KETUA_HMJ',
-            OrganizationType::UKM->value => 'KETUA_UKM',
-            OrganizationType::BEM->value => 'PRESIDEN_BEM',
-            OrganizationType::BLM->value => 'KOMISI_B_BLM',
-            OrganizationType::SBH->value => 'ADMIN',
-        ];
-
         $documentTypes = DocumentType::query()->get();
 
         foreach (OrganizationType::cases() as $organizationType) {
             foreach ($documentTypes as $documentType) {
-                $firstRoleCode = $organizationLeaderRole[$organizationType->value] ?? 'ADMIN';
-
-                $stepDefinitions = [
-                    ['order' => 1, 'role_code' => $firstRoleCode, 'is_required_signature' => true, 'can_reject' => true],
-                    ['order' => 2, 'role_code' => 'KAPRODI', 'is_required_signature' => true, 'can_reject' => true],
-                    ['order' => 3, 'role_code' => 'KAJUR', 'is_required_signature' => true, 'can_reject' => true],
-                    ['order' => 4, 'role_code' => 'WADIR_III', 'is_required_signature' => true, 'can_reject' => true],
-                    ['order' => 5, 'role_code' => 'DIREKTUR', 'is_required_signature' => true, 'can_reject' => true],
-                ];
+                $stepRoleCodes = $this->resolveFlowRoleCodes(
+                    $organizationType->value,
+                    strtoupper($documentType->code)
+                );
 
                 $workflow = Workflow::query()->firstOrCreate(
                     [
@@ -53,26 +40,190 @@ class WorkflowSeeder extends Seeder
                     ]
                 );
 
-                foreach ($stepDefinitions as $step) {
-                    $role = $roles->get($step['role_code']);
+                // Keep workflow metadata up-to-date without mutating id.
+                $workflow->update([
+                    'name' => sprintf('%s %s Approval Flow', $documentType->code, $organizationType->value),
+                    'is_active' => true,
+                ]);
+
+                foreach ($stepRoleCodes as $idx => $roleCode) {
+                    $role = $roles->get($roleCode);
                     if (! $role) {
                         continue;
                     }
 
-                    $workflow->steps()->updateOrCreate(
+                    $stepOrder = $idx + 1;
+                    $workflowStep = WorkflowStep::query()->firstOrCreate(
                         [
                             'workflow_id' => $workflow->id,
-                            'step_order' => $step['order'],
+                            'step_order' => $stepOrder,
                         ],
                         [
                             'id' => (string) Str::uuid(),
                             'role_id' => $role->id,
-                            'is_required_signature' => $step['is_required_signature'],
-                            'can_reject' => $step['can_reject'],
+                            'is_required_signature' => true,
+                            'can_reject' => true,
                         ]
                     );
+
+                    $workflowStep->update([
+                        'role_id' => $role->id,
+                        'is_required_signature' => true,
+                        'can_reject' => true,
+                    ]);
                 }
+
+                // Keep step count exactly equal to mapped flow.
+                WorkflowStep::query()
+                    ->where('workflow_id', $workflow->id)
+                    ->where('step_order', '>', count($stepRoleCodes))
+                    ->delete();
             }
         }
+    }
+
+    private function resolveFlowRoleCodes(string $organizationType, string $documentTypeCode): array
+    {
+        if ($documentTypeCode === 'SURAT') {
+            return $this->resolveSuratFlow($organizationType);
+        }
+
+        return $this->resolveKakLpjFlow($organizationType);
+    }
+
+    private function resolveKakLpjFlow(string $organizationType): array
+    {
+        return match ($organizationType) {
+            OrganizationType::SBH->value => [
+                'KETUA_SBH',
+                'PEMBINA_SBH',
+                'PRESIDEN_BEM',
+                'KOMISI_B_BLM',
+                'PENANGGUNG_JAWAB_MAHASISWA',
+                'KA_SUB_BAG_AKADEMIK',
+                'KA_BAG_AKADEMIK',
+                'KA_BAG_AKADEMIK_UMUM',
+                'WADIR_II',
+                'DIREKTUR',
+            ],
+            OrganizationType::UKM->value => [
+                'KETUA_UKM',
+                'PEMBINA_UKM',
+                'MENTERI_MINAT_BAKAT_BEM',
+                'KOMISI_B_BLM',
+                'PENANGGUNG_JAWAB_MAHASISWA',
+                'KA_SUB_BAG_AKADEMIK',
+                'KA_BAG_AKADEMIK',
+                'KA_BAG_AKADEMIK_UMUM',
+                'WADIR_II',
+                'DIREKTUR',
+            ],
+            OrganizationType::HMPS->value => [
+                'KETUA_HMPS',
+                'PJ_MAHASISWA_ALUMNI_JURUSAN',
+                'KAPRODI',
+                'KAJUR',
+                'PRESIDEN_BEM',
+                'KOMISI_B_BLM',
+                'PENANGGUNG_JAWAB_MAHASISWA',
+                'KA_SUB_BAG_AKADEMIK',
+                'KA_BAG_AKADEMIK',
+                'KA_BAG_AKADEMIK_UMUM',
+                'WADIR_II',
+                'DIREKTUR',
+            ],
+            OrganizationType::HMJ->value => [
+                'KETUA_HMJ',
+                'PJ_MAHASISWA_ALUMNI_JURUSAN',
+                'KAJUR',
+                'PRESIDEN_BEM',
+                'KOMISI_B_BLM',
+                'PENANGGUNG_JAWAB_MAHASISWA',
+                'KA_SUB_BAG_AKADEMIK',
+                'KA_BAG_AKADEMIK_UMUM',
+                'WADIR_II',
+                'DIREKTUR',
+            ],
+            OrganizationType::BEM->value => [
+                'PRESIDEN_BEM',
+                'KOMISI_B_BLM',
+                'PENANGGUNG_JAWAB_MAHASISWA',
+                'KA_SUB_BAG_AKADEMIK',
+                'KA_BAG_AKADEMIK_UMUM',
+                'WADIR_II',
+                'DIREKTUR',
+            ],
+            OrganizationType::BLM->value => [
+                'KETUA_BLM',
+                'PENANGGUNG_JAWAB_MAHASISWA',
+                'KA_SUB_BAG_AKADEMIK',
+                'KA_BAG_AKADEMIK_UMUM',
+                'WADIR_II',
+                'DIREKTUR',
+            ],
+            default => ['ADMIN', 'DIREKTUR'],
+        };
+    }
+
+    private function resolveSuratFlow(string $organizationType): array
+    {
+        return [
+            ...match ($organizationType) {
+                OrganizationType::SBH->value => [
+                    'KETUA_SBH',
+                    'PEMBINA_SBH',
+                    'PRESIDEN_BEM',
+                    'KOMISI_B_BLM',
+                    'PENANGGUNG_JAWAB_MAHASISWA',
+                    'KA_SUB_BAG_AKADEMIK',
+                    'KA_BAG_AKADEMIK_UMUM',
+                ],
+                OrganizationType::UKM->value => [
+                    'KETUA_UKM',
+                    'PEMBINA_UKM',
+                    'MENTERI_MINAT_BAKAT_BEM',
+                    'KOMISI_B_BLM',
+                    'PENANGGUNG_JAWAB_MAHASISWA',
+                    'KA_SUB_BAG_AKADEMIK',
+                    'KA_BAG_AKADEMIK_UMUM',
+                ],
+                OrganizationType::HMPS->value => [
+                    'KETUA_HMPS',
+                    'PJ_MAHASISWA_ALUMNI_JURUSAN',
+                    'KAPRODI',
+                    'KAJUR',
+                    'PRESIDEN_BEM',
+                    'KOMISI_B_BLM',
+                    'PENANGGUNG_JAWAB_MAHASISWA',
+                    'KA_SUB_BAG_AKADEMIK',
+                    'KA_BAG_AKADEMIK',
+                    'KA_BAG_AKADEMIK_UMUM',
+                ],
+                OrganizationType::HMJ->value => [
+                    'KETUA_HMJ',
+                    'PJ_MAHASISWA_ALUMNI_JURUSAN',
+                    'KAJUR',
+                    'PRESIDEN_BEM',
+                    'KOMISI_B_BLM',
+                    'PENANGGUNG_JAWAB_MAHASISWA',
+                    'KA_SUB_BAG_AKADEMIK',
+                    'KA_BAG_AKADEMIK_UMUM',
+                ],
+                OrganizationType::BEM->value => [
+                    'PRESIDEN_BEM',
+                    'KOMISI_B_BLM',
+                    'PENANGGUNG_JAWAB_MAHASISWA',
+                    'KA_SUB_BAG_AKADEMIK',
+                    'KA_BAG_AKADEMIK_UMUM',
+                ],
+                OrganizationType::BLM->value => [
+                    'KETUA_BLM',
+                    'PENANGGUNG_JAWAB_MAHASISWA',
+                    'KA_SUB_BAG_AKADEMIK',
+                    'KA_BAG_AKADEMIK_UMUM',
+                ],
+                default => ['ADMINISTRASI_AKADEMIK'],
+            },
+        ];
     }
 }

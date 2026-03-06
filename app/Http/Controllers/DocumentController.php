@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\Document\DocumentIndexRequest;
+use App\Http\Requests\Document\SubmitDocumentRequest;
 use App\Http\Requests\Document\StoreDocumentRequest;
 use App\Services\DocumentService;
 use DomainException;
@@ -45,7 +46,7 @@ class DocumentController extends Controller
         ]);
     }
 
-    public function submit(Request $request, string $id): JsonResponse
+    public function submit(SubmitDocumentRequest $request, string $id): JsonResponse
     {
         $document = $this->documents->findForUser($id, $request->user());
 
@@ -54,7 +55,7 @@ class DocumentController extends Controller
         }
 
         try {
-            $this->documents->submit($document, $request->user());
+            $this->documents->submit($document, $request->user(), $request->validated('signature_value'));
         } catch (DomainException $exception) {
             return response()->json(['message' => $exception->getMessage()], 422);
         }

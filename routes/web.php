@@ -28,6 +28,7 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::post('/app/documents', [DocumentPageController::class, 'store'])->name('app.documents.store');
     Route::get('/app/documents/{id}', [DocumentPageController::class, 'show'])->name('app.documents.show');
     Route::post('/app/documents/{id}/submit', [DocumentPageController::class, 'submit'])->name('app.documents.submit');
+    Route::get('/app/documents/{id}/download', [DocumentPageController::class, 'download'])->name('app.documents.download');
 
     Route::get('/app/approvals/pending', [ApprovalPageController::class, 'pending'])->name('app.approvals.pending');
     Route::post('/app/approvals/{id}/approve', [ApprovalPageController::class, 'approve'])->name('app.approvals.approve');
@@ -39,6 +40,7 @@ Route::middleware(['auth', 'active'])->group(function () {
         Route::post('/app/users', [UserManagementPageController::class, 'store'])->name('app.users.store');
         Route::get('/app/users/{id}/edit', [UserManagementPageController::class, 'edit'])->name('app.users.edit');
         Route::put('/app/users/{id}', [UserManagementPageController::class, 'update'])->name('app.users.update');
+        Route::delete('/app/users/{id}', [UserManagementPageController::class, 'destroy'])->name('app.users.destroy');
     });
 
     // REST API endpoints (session-based + CSRF protected)

@@ -46,21 +46,6 @@
         <ul class="flex flex-col gap-1 pt-4 pb-3 border-b border-gray-200 dark:border-gray-800">
             @php
                 $menuItems = [
-                    [
-                        'text' => 'Edit profile',
-                        'icon' => '<svg data-feather="user" width="24" height="24"></svg>',
-                        'path' => 'profile',
-                    ],
-                    [
-                        'text' => 'Account settings',
-                        'icon' => '<svg data-feather="settings" width="24" height="24"></svg>',
-                        'path' => 'chat'
-                    ],
-                    [
-                        'text' => 'Support',
-                        'icon' => '<svg data-feather="help-circle" width="24" height="24"></svg>',
-                        'path' => 'profile'
-                    ],
                 ];
             @endphp
 

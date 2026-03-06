@@ -27,9 +27,15 @@ class UserManagementPageController extends Controller
             'per_page' => $request->validated('per_page') ?? 10,
         ];
 
+        $users = $this->users->paginate($filters, 'user_page');
+
         return view('pages.user-management.index', [
             'title' => 'User Management',
-            'users' => $this->users->paginate($filters, 'user_page'),
+            'users' => $users,
+            'deletableUserIds' => $users->getCollection()
+                ->filter(fn ($user) => ((int) ($user->created_documents_count ?? 0) + (int) ($user->approvals_count ?? 0)) === 0)
+                ->pluck('id')
+                ->all(),
             'organizations' => Organization::query()->orderBy('name')->get(),
         ]);
     }
@@ -76,5 +82,20 @@ class UserManagementPageController extends Controller
         }
 
         return redirect()->route('app.users.edit', $id)->with('success', 'User berhasil diperbarui.');
+    }
+
+    public function destroy(string $id): RedirectResponse
+    {
+        $result = $this->users->delete($id);
+
+        if ($result === 'not_found') {
+            return redirect()->route('app.users.index')->with('error', 'User tidak ditemukan.');
+        }
+
+        if ($result === 'has_activity') {
+            return redirect()->route('app.users.index')->with('error', 'User tidak bisa dihapus karena sudah memiliki aktivitas.');
+        }
+
+        return redirect()->route('app.users.index')->with('success', 'User berhasil dihapus.');
     }
 }

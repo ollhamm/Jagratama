@@ -12,7 +12,9 @@ class UserManagementRepository implements UserManagementRepositoryInterface
 {
     public function paginate(array $filters = [], int $perPage = 10, string $pageName = 'page'): LengthAwarePaginator
     {
-        $query = User::query()->with(['organization', 'userRoles.role']);
+        $query = User::query()
+            ->with(['organization', 'userRoles.role'])
+            ->withCount(['createdDocuments', 'approvals']);
 
         if (! empty($filters['search'])) {
             $search = trim((string) $filters['search']);
@@ -46,6 +48,16 @@ class UserManagementRepository implements UserManagementRepositoryInterface
     public function update(User $user, array $data): bool
     {
         return $user->update($data);
+    }
+
+    public function hasActivity(User $user): bool
+    {
+        return $user->createdDocuments()->exists() || $user->approvals()->exists();
+    }
+
+    public function delete(User $user): bool
+    {
+        return (bool) $user->delete();
     }
 
     public function deleteUserRoles(User $user): void

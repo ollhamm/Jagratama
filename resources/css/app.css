@@ -880,3 +880,7 @@ pre[class*='language-'] {
     margin-right: -60px !important;
   }
 }
+
+thead tr {
+  height: 46px !important;
+}

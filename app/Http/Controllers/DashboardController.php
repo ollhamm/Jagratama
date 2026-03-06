@@ -20,16 +20,28 @@ class DashboardController extends Controller
 
         $isApprover = $user->userRoles()
             ->whereHas('role', fn ($query) => $query->whereIn('code', [
+                'KETUA_SBH',
+                'PEMBINA_SBH',
                 'KAPRODI',
                 'KAJUR',
+                'WADIR_II',
                 'WADIR_III',
                 'DIREKTUR',
                 'ADMIN',
                 'KETUA_HMPS',
                 'KETUA_HMJ',
                 'KETUA_UKM',
+                'KETUA_BLM',
                 'PRESIDEN_BEM',
                 'KOMISI_B_BLM',
+                'PJ_MAHASISWA_ALUMNI_JURUSAN',
+                'PEMBINA_UKM',
+                'MENTERI_MINAT_BAKAT_BEM',
+                'PENANGGUNG_JAWAB_MAHASISWA',
+                'ADMINISTRASI_AKADEMIK',
+                'KA_SUB_BAG_AKADEMIK',
+                'KA_BAG_AKADEMIK',
+                'KA_BAG_AKADEMIK_UMUM',
             ]))
             ->exists();
 

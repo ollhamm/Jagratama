@@ -72,4 +72,31 @@ class UserManagementService
             return $this->users->findById($user->id);
         });
     }
+
+    public function canDelete(string $id): bool
+    {
+        $user = $this->users->findById($id);
+        if (! $user) {
+            return false;
+        }
+
+        return ! $this->users->hasActivity($user);
+    }
+
+    public function delete(string $id): string
+    {
+        return DB::transaction(function () use ($id) {
+            $user = $this->users->findById($id);
+            if (! $user) {
+                return 'not_found';
+            }
+
+            if ($this->users->hasActivity($user)) {
+                return 'has_activity';
+            }
+
+            $this->users->delete($user);
+            return 'deleted';
+        });
+    }
 }

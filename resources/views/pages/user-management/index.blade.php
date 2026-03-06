@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+    <div x-data="{ deleteAction: '', deleteUserName: '' }">
     <x-common.page-breadcrumb pageTitle="User Management" />
 
     <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
@@ -73,7 +74,23 @@
                                     </span>
                                 </td>
                                 <td class="px-3 py-2 text-sm">
-                                    <a href="{{ route('app.users.edit', $user->id) }}" class="text-brand-600 hover:text-brand-700">Edit</a>
+                                    <div class="flex items-center gap-3">
+                                        <a href="{{ route('app.users.edit', $user->id) }}" class="text-brand-600 hover:text-brand-700">Edit</a>
+
+                                        @if(in_array($user->id, $deletableUserIds ?? [], true))
+                                            <button
+                                                type="button"
+                                                class="text-error-600 hover:text-error-700"
+                                                data-action="{{ route('app.users.destroy', $user->id) }}"
+                                                data-name="{{ $user->name }}"
+                                                @click="deleteAction = $el.dataset.action; deleteUserName = $el.dataset.name; $dispatch('open-user-delete-modal')"
+                                            >
+                                                Delete
+                                            </button>
+                                        @else
+                                            <span class="text-xs text-gray-400" title="User sudah memiliki aktivitas dan tidak dapat dihapus">Tidak bisa dihapus</span>
+                                        @endif
+                                    </div>
                                 </td>
                             </tr>
                         @empty
@@ -87,5 +104,35 @@
         </div>
 
         <div class="mt-4">{{ $users->appends(request()->query())->links() }}</div>
+    </div>
+
+    <x-ui.modal x-data="{ open: false }" @open-user-delete-modal.window="open = true" :isOpen="false" class="max-w-md">
+        <div class="p-6 sm:p-7">
+            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Hapus User</h3>
+            <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                Yakin ingin menghapus user
+                <span class="font-semibold text-gray-800 dark:text-white/90" x-text="deleteUserName"></span>?
+                Tindakan ini tidak bisa dibatalkan.
+            </p>
+
+            <div class="mt-6 flex items-center justify-end gap-3">
+                <button
+                    type="button"
+                    class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                    @click="open = false"
+                >
+                    Batal
+                </button>
+
+                <form method="POST" :action="deleteAction" @submit="open = false">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-700">
+                        Ya, Hapus
+                    </button>
+                </form>
+            </div>
+        </div>
+    </x-ui.modal>
     </div>
 @endsection
