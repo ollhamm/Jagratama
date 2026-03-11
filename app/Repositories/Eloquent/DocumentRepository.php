@@ -94,6 +94,11 @@ class DocumentRepository implements DocumentRepositoryInterface
         return $document->update($data);
     }
 
+    public function delete(Document $document): bool
+    {
+        return (bool) $document->delete();
+    }
+
     public function createAttachment(array $data): DocumentAttachment
     {
         return DocumentAttachment::query()->create($data);

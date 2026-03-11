@@ -15,6 +15,7 @@ class RejectRequest extends FormRequest
     {
         return [
             'notes' => ['required', 'string'],
+            'redirect_to' => ['nullable', 'url'],
         ];
     }
 }

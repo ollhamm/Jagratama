@@ -18,9 +18,9 @@ class MenuHelper
             ],
             [
                 'icon' => 'forms',
-                'name' => 'Dokumen',
+                'name' => 'Pengajuan',
                 'path' => '/app/documents',
-                'roles' => [],
+                'roles' => ['PENGAJU'],
             ],
             [
                 'icon' => 'task',

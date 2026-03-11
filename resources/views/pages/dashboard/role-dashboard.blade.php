@@ -83,7 +83,7 @@
         <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
             <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
                 <div class="mb-4 flex items-center justify-between">
-                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Dokumen Menunggu Approval</h3>
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Menunggu Approval</h3>
                     <form method="GET" action="{{ route('dashboard') }}" class="flex items-center gap-2">
                         <input
                             type="text"

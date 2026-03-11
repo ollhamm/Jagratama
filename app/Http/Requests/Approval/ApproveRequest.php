@@ -16,6 +16,7 @@ class ApproveRequest extends FormRequest
         return [
             'notes' => ['nullable', 'string'],
             'signature_value' => ['nullable', 'string'],
+            'redirect_to' => ['nullable', 'url'],
         ];
     }
 }

@@ -36,6 +36,8 @@ class ApprovalPageController extends Controller
 
     public function approve(ApproveRequest $request, string $id): RedirectResponse
     {
+        $redirectTo = $request->validated('redirect_to') ?? route('app.approvals.pending');
+
         try {
             $this->approvals->approve(
                 $id,
@@ -44,20 +46,22 @@ class ApprovalPageController extends Controller
                 $request->validated('signature_value')
             );
         } catch (DomainException $exception) {
-            return redirect()->route('app.approvals.pending')->with('error', $exception->getMessage());
+            return redirect()->to($redirectTo)->with('error', $exception->getMessage());
         }
 
-        return redirect()->route('app.approvals.pending')->with('success', 'Approval berhasil diproses.');
+        return redirect()->to($redirectTo)->with('success', 'Approval berhasil diproses.');
     }
 
     public function reject(RejectRequest $request, string $id): RedirectResponse
     {
+        $redirectTo = $request->validated('redirect_to') ?? route('app.approvals.pending');
+
         try {
             $this->approvals->reject($id, $request->user(), $request->validated('notes'));
         } catch (DomainException $exception) {
-            return redirect()->route('app.approvals.pending')->with('error', $exception->getMessage());
+            return redirect()->to($redirectTo)->with('error', $exception->getMessage());
         }
 
-        return redirect()->route('app.approvals.pending')->with('success', 'Dokumen berhasil direject.');
+        return redirect()->to($redirectTo)->with('success', 'Dokumen berhasil direject.');
     }
 }

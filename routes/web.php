@@ -10,6 +10,8 @@ use App\Http\Controllers\Web\DocumentPageController;
 use App\Http\Controllers\Web\UserManagementPageController;
 use Illuminate\Support\Facades\Route;
 
+$pengajuRoles = 'PENGAJU';
+
 Route::redirect('/', '/dashboard');
 Route::redirect('/login', '/signin')->name('login');
 
@@ -18,16 +20,21 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->name('login.attempt');
 });
 
-Route::middleware(['auth', 'active'])->group(function () {
+Route::middleware(['auth', 'active'])->group(function () use ($pengajuRoles) {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
     // Blade UI routes
-    Route::get('/app/documents', [DocumentPageController::class, 'index'])->name('app.documents.index');
-    Route::get('/app/documents/create', [DocumentPageController::class, 'create'])->name('app.documents.create');
-    Route::post('/app/documents', [DocumentPageController::class, 'store'])->name('app.documents.store');
+    Route::middleware('role:'.$pengajuRoles)->group(function () {
+        Route::get('/app/documents', [DocumentPageController::class, 'index'])->name('app.documents.index');
+        Route::get('/app/documents/create', [DocumentPageController::class, 'create'])->name('app.documents.create');
+        Route::post('/app/documents', [DocumentPageController::class, 'store'])->name('app.documents.store');
+        Route::delete('/app/documents/{id}', [DocumentPageController::class, 'destroy'])->name('app.documents.destroy');
+        Route::post('/app/documents/{id}/submit', [DocumentPageController::class, 'submit'])->name('app.documents.submit');
+    });
+
     Route::get('/app/documents/{id}', [DocumentPageController::class, 'show'])->name('app.documents.show');
-    Route::post('/app/documents/{id}/submit', [DocumentPageController::class, 'submit'])->name('app.documents.submit');
+    Route::get('/app/documents/{id}/attachments/{attachmentId}/preview', [DocumentPageController::class, 'previewAttachment'])->name('app.documents.attachments.preview');
     Route::get('/app/documents/{id}/download', [DocumentPageController::class, 'download'])->name('app.documents.download');
 
     Route::get('/app/approvals/pending', [ApprovalPageController::class, 'pending'])->name('app.approvals.pending');

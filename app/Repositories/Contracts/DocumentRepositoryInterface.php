@@ -19,5 +19,7 @@ interface DocumentRepositoryInterface
 
     public function update(Document $document, array $data): bool;
 
+    public function delete(Document $document): bool;
+
     public function createAttachment(array $data): DocumentAttachment;
 }

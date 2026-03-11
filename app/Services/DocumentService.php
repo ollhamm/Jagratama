@@ -9,9 +9,9 @@ use App\Repositories\Contracts\DocumentRepositoryInterface;
 use DomainException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class DocumentService
 {
@@ -50,11 +50,9 @@ class DocumentService
                 'current_step_order' => 0,
             ]);
 
-            foreach (Arr::wrap($payload['attachments'] ?? []) as $attachmentFile) {
-                if (! $attachmentFile instanceof UploadedFile) {
-                    continue;
-                }
+            $attachmentFile = $payload['attachment'] ?? ($payload['attachments'][0] ?? null);
 
+            if ($attachmentFile instanceof UploadedFile) {
                 $path = $attachmentFile->store('documents');
 
                 $this->documents->createAttachment([
@@ -99,5 +97,33 @@ class DocumentService
             'document_id' => $document->id,
             'submitted_by' => $actor->id,
         ]);
+    }
+
+    public function deleteDraft(Document $document, User $actor): void
+    {
+        if ($document->current_status !== DocumentStatus::DRAFT) {
+            throw new DomainException('Hanya dokumen berstatus DRAFT yang dapat dihapus.');
+        }
+
+        if ($document->created_by !== $actor->id) {
+            throw new DomainException('Hanya pengaju pembuat dokumen yang dapat menghapus draft.');
+        }
+
+        DB::transaction(function () use ($document, $actor) {
+            $document->loadMissing('attachments');
+
+            foreach ($document->attachments as $attachment) {
+                if (! blank($attachment->file_path) && Storage::exists($attachment->file_path)) {
+                    Storage::delete($attachment->file_path);
+                }
+            }
+
+            $this->documents->delete($document);
+
+            Log::info('dokumen_draft_dihapus', [
+                'document_id' => $document->id,
+                'deleted_by' => $actor->id,
+            ]);
+        });
     }
 }

@@ -14,19 +14,23 @@ class DocumentTypeSeeder extends Seeder
     public function run(): void
     {
         $types = [
-            ['code' => 'KAK', 'name' => 'Kerangka Acuan Kegiatan'],
-            ['code' => 'LPJ', 'name' => 'Laporan Pertanggungjawaban'],
-            ['code' => 'SURAT', 'name' => 'Persuratan Organisasi Mahasiswa'],
+            ['code' => 'KAK', 'name' => 'TOR, KAK/LPJ/Proposal Sponsorship'],
+            ['code' => 'LPJ', 'name' => 'TOR, KAK/LPJ/Proposal Sponsorship'],
+            ['code' => 'SURAT', 'name' => 'Pengajuan Persuratan Direktorat dan Desain Sertifikat'],
         ];
 
         foreach ($types as $type) {
-            DocumentType::query()->updateOrCreate(
+            $documentType = DocumentType::query()->firstOrCreate(
                 ['code' => $type['code']],
                 [
                     'id' => (string) Str::uuid(),
                     'name' => $type['name'],
                 ]
             );
+
+            if ($documentType->name !== $type['name']) {
+                $documentType->update(['name' => $type['name']]);
+            }
         }
     }
 }

@@ -35,14 +35,14 @@ class WorkflowSeeder extends Seeder
                     ],
                     [
                         'id' => (string) Str::uuid(),
-                        'name' => sprintf('%s %s Approval Flow', $documentType->code, $organizationType->value),
+                        'name' => $this->resolveWorkflowName(strtoupper($documentType->code), $organizationType->value),
                         'is_active' => true,
                     ]
                 );
 
                 // Keep workflow metadata up-to-date without mutating id.
                 $workflow->update([
-                    'name' => sprintf('%s %s Approval Flow', $documentType->code, $organizationType->value),
+                    'name' => $this->resolveWorkflowName(strtoupper($documentType->code), $organizationType->value),
                     'is_active' => true,
                 ]);
 
@@ -53,6 +53,11 @@ class WorkflowSeeder extends Seeder
                     }
 
                     $stepOrder = $idx + 1;
+                    $isRequiredSignature = $this->isStepRequiresSignature(
+                        $organizationType->value,
+                        strtoupper($documentType->code),
+                        $roleCode
+                    );
                     $workflowStep = WorkflowStep::query()->firstOrCreate(
                         [
                             'workflow_id' => $workflow->id,
@@ -61,14 +66,14 @@ class WorkflowSeeder extends Seeder
                         [
                             'id' => (string) Str::uuid(),
                             'role_id' => $role->id,
-                            'is_required_signature' => true,
+                            'is_required_signature' => $isRequiredSignature,
                             'can_reject' => true,
                         ]
                     );
 
                     $workflowStep->update([
                         'role_id' => $role->id,
-                        'is_required_signature' => true,
+                        'is_required_signature' => $isRequiredSignature,
                         'can_reject' => true,
                     ]);
                 }
@@ -91,6 +96,15 @@ class WorkflowSeeder extends Seeder
         return $this->resolveKakLpjFlow($organizationType);
     }
 
+    private function resolveWorkflowName(string $documentTypeCode, string $organizationType): string
+    {
+        if ($documentTypeCode === 'SURAT') {
+            return sprintf('ALUR PENGAJUAN PERSURATAN DIREKTORAT DAN DESAIN SERTIFIKAT (%s)', $organizationType);
+        }
+
+        return sprintf('ALUR TOR, KAK/LPJ/PROPOSAL SPONSORSHIP(%s)', $organizationType);
+    }
+
     private function resolveKakLpjFlow(string $organizationType): array
     {
         return match ($organizationType) {
@@ -103,7 +117,7 @@ class WorkflowSeeder extends Seeder
                 'KA_SUB_BAG_AKADEMIK',
                 'KA_BAG_AKADEMIK',
                 'KA_BAG_AKADEMIK_UMUM',
-                'WADIR_II',
+                'WADIR_III',
                 'DIREKTUR',
             ],
             OrganizationType::UKM->value => [
@@ -225,5 +239,40 @@ class WorkflowSeeder extends Seeder
                 default => ['ADMINISTRASI_AKADEMIK'],
             },
         ];
+    }
+
+    private function isStepRequiresSignature(string $organizationType, string $documentTypeCode, string $roleCode): bool
+    {
+        if ($documentTypeCode === 'SURAT') {
+            return in_array($roleCode, $this->resolveSuratSignatureRoleCodes($organizationType), true);
+        }
+
+        return in_array($roleCode, $this->resolveKakLpjSignatureRoleCodes($organizationType), true);
+    }
+
+    private function resolveKakLpjSignatureRoleCodes(string $organizationType): array
+    {
+        return match ($organizationType) {
+            OrganizationType::SBH->value => ['KETUA_SBH', 'DIREKTUR'],
+            OrganizationType::UKM->value => ['KETUA_UKM', 'PRESIDEN_BEM', 'DIREKTUR'],
+            OrganizationType::HMPS->value => ['KETUA_HMPS', 'KAJUR', 'DIREKTUR'],
+            OrganizationType::HMJ->value => ['KETUA_HMJ', 'KAJUR', 'DIREKTUR'],
+            OrganizationType::BEM->value => ['PRESIDEN_BEM', 'DIREKTUR'],
+            OrganizationType::BLM->value => ['KETUA_BLM', 'DIREKTUR'],
+            default => ['DIREKTUR'],
+        };
+    }
+
+    private function resolveSuratSignatureRoleCodes(string $organizationType): array
+    {
+        return match ($organizationType) {
+            OrganizationType::SBH->value => ['KETUA_SBH', 'KA_BAG_AKADEMIK_UMUM'],
+            OrganizationType::UKM->value => ['KETUA_UKM', 'KA_BAG_AKADEMIK_UMUM'],
+            OrganizationType::HMPS->value => ['KETUA_HMPS', 'KA_BAG_AKADEMIK_UMUM'],
+            OrganizationType::HMJ->value => ['KETUA_HMJ', 'KA_BAG_AKADEMIK_UMUM'],
+            OrganizationType::BEM->value => ['PRESIDEN_BEM', 'KA_BAG_AKADEMIK_UMUM'],
+            OrganizationType::BLM->value => ['KETUA_BLM', 'KA_BAG_AKADEMIK_UMUM'],
+            default => ['KA_BAG_AKADEMIK_UMUM'],
+        };
     }
 }
