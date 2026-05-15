@@ -78,10 +78,11 @@ class WorkflowSeeder extends Seeder
                     ]);
                 }
 
-                // Keep step count exactly equal to mapped flow.
+                // Remove obsolete steps — skip any that already have approvals to avoid FK violation.
                 WorkflowStep::query()
                     ->where('workflow_id', $workflow->id)
                     ->where('step_order', '>', count($stepRoleCodes))
+                    ->whereDoesntHave('approvals')
                     ->delete();
             }
         }
@@ -115,7 +116,6 @@ class WorkflowSeeder extends Seeder
                 'KOMISI_B_BLM',
                 'PENANGGUNG_JAWAB_MAHASISWA',
                 'KA_SUB_BAG_AKADEMIK',
-                'KA_BAG_AKADEMIK',
                 'KA_BAG_AKADEMIK_UMUM',
                 'WADIR_III',
                 'DIREKTUR',
@@ -127,9 +127,8 @@ class WorkflowSeeder extends Seeder
                 'KOMISI_B_BLM',
                 'PENANGGUNG_JAWAB_MAHASISWA',
                 'KA_SUB_BAG_AKADEMIK',
-                'KA_BAG_AKADEMIK',
                 'KA_BAG_AKADEMIK_UMUM',
-                'WADIR_II',
+                'WADIR_III',
                 'DIREKTUR',
             ],
             OrganizationType::HMPS->value => [
@@ -141,9 +140,8 @@ class WorkflowSeeder extends Seeder
                 'KOMISI_B_BLM',
                 'PENANGGUNG_JAWAB_MAHASISWA',
                 'KA_SUB_BAG_AKADEMIK',
-                'KA_BAG_AKADEMIK',
                 'KA_BAG_AKADEMIK_UMUM',
-                'WADIR_II',
+                'WADIR_III',
                 'DIREKTUR',
             ],
             OrganizationType::HMJ->value => [
@@ -155,7 +153,7 @@ class WorkflowSeeder extends Seeder
                 'PENANGGUNG_JAWAB_MAHASISWA',
                 'KA_SUB_BAG_AKADEMIK',
                 'KA_BAG_AKADEMIK_UMUM',
-                'WADIR_II',
+                'WADIR_III',
                 'DIREKTUR',
             ],
             OrganizationType::BEM->value => [
@@ -164,7 +162,7 @@ class WorkflowSeeder extends Seeder
                 'PENANGGUNG_JAWAB_MAHASISWA',
                 'KA_SUB_BAG_AKADEMIK',
                 'KA_BAG_AKADEMIK_UMUM',
-                'WADIR_II',
+                'WADIR_III',
                 'DIREKTUR',
             ],
             OrganizationType::BLM->value => [
@@ -172,7 +170,7 @@ class WorkflowSeeder extends Seeder
                 'PENANGGUNG_JAWAB_MAHASISWA',
                 'KA_SUB_BAG_AKADEMIK',
                 'KA_BAG_AKADEMIK_UMUM',
-                'WADIR_II',
+                'WADIR_III',
                 'DIREKTUR',
             ],
             default => ['ADMIN', 'DIREKTUR'],
@@ -210,7 +208,6 @@ class WorkflowSeeder extends Seeder
                     'KOMISI_B_BLM',
                     'PENANGGUNG_JAWAB_MAHASISWA',
                     'KA_SUB_BAG_AKADEMIK',
-                    'KA_BAG_AKADEMIK',
                     'KA_BAG_AKADEMIK_UMUM',
                 ],
                 OrganizationType::HMJ->value => [

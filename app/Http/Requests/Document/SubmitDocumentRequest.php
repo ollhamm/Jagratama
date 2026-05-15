@@ -14,7 +14,7 @@ class SubmitDocumentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'signature_value' => ['required', 'string', 'max:5000'],
+            'signature_value' => ['nullable', 'string', 'max:5000'],
         ];
     }
 }

@@ -14,9 +14,18 @@ trait BaseUserAccess
             ->orWhereHas('role', fn (Builder $query) => $query->whereIn('code', [
                 'ADMIN',
                 'DIREKTUR',
+                'WADIR_II',
                 'WADIR_III',
                 'KAPRODI',
                 'KAJUR',
+                // Role lintas organisasi — muncul di alur semua tipe ormawa
+                'PRESIDEN_BEM',
+                'MENTERI_MINAT_BAKAT_BEM',
+                'KOMISI_B_BLM',
+                'PENANGGUNG_JAWAB_MAHASISWA',
+                'KA_SUB_BAG_AKADEMIK',
+                'KA_BAG_AKADEMIK',
+                'KA_BAG_AKADEMIK_UMUM',
             ]))
             ->exists();
     }

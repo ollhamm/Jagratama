@@ -14,7 +14,7 @@ class OrganizationSeeder extends Seeder
      */
     public function run(): void
     {
-        $institution = Organization::query()->updateOrCreate(
+        $institution = Organization::query()->firstOrCreate(
             ['name' => 'Institusi Poltekkes Kemenkes Yogyakarta'],
             [
                 'id' => (string) Str::uuid(),
@@ -23,7 +23,7 @@ class OrganizationSeeder extends Seeder
             ]
         );
 
-        $hmj = Organization::query()->updateOrCreate(
+        $hmj = Organization::query()->firstOrCreate(
             ['name' => 'HMJ Keperawatan'],
             [
                 'id' => (string) Str::uuid(),
@@ -32,7 +32,7 @@ class OrganizationSeeder extends Seeder
             ]
         );
 
-        Organization::query()->updateOrCreate(
+        Organization::query()->firstOrCreate(
             ['name' => 'HMPS Keperawatan'],
             [
                 'id' => (string) Str::uuid(),
@@ -41,7 +41,7 @@ class OrganizationSeeder extends Seeder
             ]
         );
 
-        Organization::query()->updateOrCreate(
+        Organization::query()->firstOrCreate(
             ['name' => 'BEM Poltekkes Kemenkes Yogyakarta'],
             [
                 'id' => (string) Str::uuid(),
@@ -50,7 +50,7 @@ class OrganizationSeeder extends Seeder
             ]
         );
 
-        Organization::query()->updateOrCreate(
+        Organization::query()->firstOrCreate(
             ['name' => 'BLM Poltekkes Kemenkes Yogyakarta'],
             [
                 'id' => (string) Str::uuid(),
@@ -59,7 +59,7 @@ class OrganizationSeeder extends Seeder
             ]
         );
 
-        Organization::query()->updateOrCreate(
+        Organization::query()->firstOrCreate(
             ['name' => 'UKM Kesehatan'],
             [
                 'id' => (string) Str::uuid(),

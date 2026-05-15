@@ -51,24 +51,37 @@ class NotificationService
         ]);
     }
 
+    // Role yang muncul di workflow lintas organisasi — tidak perlu filter per org saat notifikasi.
+    private const GLOBAL_ROLE_CODES = [
+        'ADMIN', 'DIREKTUR', 'WADIR_II', 'WADIR_III', 'KAPRODI', 'KAJUR',
+        'PRESIDEN_BEM', 'MENTERI_MINAT_BAKAT_BEM', 'KOMISI_B_BLM',
+        'PENANGGUNG_JAWAB_MAHASISWA', 'KA_SUB_BAG_AKADEMIK',
+        'KA_BAG_AKADEMIK', 'KA_BAG_AKADEMIK_UMUM',
+    ];
+
     private function notifyRoleUsers(Document $document, string $roleId, string $type, string $message): void
     {
-        $targets = UserRole::query()
-            ->where('role_id', $roleId)
-            ->where(function ($query) use ($document) {
-                $query->whereNull('organization_id')
+        $role = \App\Models\Role::query()->find($roleId);
+        $isGlobalRole = in_array($role?->code, self::GLOBAL_ROLE_CODES, true);
+
+        $query = UserRole::query()->where('role_id', $roleId);
+
+        if (! $isGlobalRole) {
+            $query->where(function ($q) use ($document) {
+                $q->whereNull('organization_id')
                     ->orWhere('organization_id', $document->organization_id);
-            })
-            ->pluck('user_id')
-            ->unique();
+            });
+        }
+
+        $targets = $query->pluck('user_id')->unique();
 
         foreach ($targets as $userId) {
             SystemNotification::query()->create([
-                'id' => (string) Str::uuid(),
-                'user_id' => $userId,
+                'id'          => (string) Str::uuid(),
+                'user_id'     => $userId,
                 'document_id' => $document->id,
-                'type' => $type,
-                'message' => $message,
+                'type'        => $type,
+                'message'     => $message,
             ]);
         }
     }

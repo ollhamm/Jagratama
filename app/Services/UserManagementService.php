@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Repositories\Contracts\UserManagementRepositoryInterface;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 
 class UserManagementService
@@ -35,8 +34,8 @@ class UserManagementService
                 'is_active' => (bool) ($payload['is_active'] ?? true),
             ]);
 
-            foreach (Arr::wrap($payload['role_ids'] ?? []) as $roleId) {
-                $this->users->addRoleToUser($user, $roleId, $payload['role_organization_id'] ?? null);
+            if (! empty($payload['role_id'])) {
+                $this->users->addRoleToUser($user, $payload['role_id'], $payload['role_organization_id'] ?? null);
             }
 
             return $user;
@@ -63,10 +62,14 @@ class UserManagementService
             }
 
             $this->users->update($user, $updateData);
-            $this->users->deleteUserRoles($user);
 
-            foreach (Arr::wrap($payload['role_ids'] ?? []) as $roleId) {
-                $this->users->addRoleToUser($user, $roleId, $payload['role_organization_id'] ?? null);
+            // Jika user mengedit akunnya sendiri, role tidak boleh diubah.
+            if ((string) auth()->id() !== (string) $id) {
+                $this->users->deleteUserRoles($user);
+
+                if (! empty($payload['role_id'])) {
+                    $this->users->addRoleToUser($user, $payload['role_id'], $payload['role_organization_id'] ?? null);
+                }
             }
 
             return $this->users->findById($user->id);
@@ -75,6 +78,10 @@ class UserManagementService
 
     public function canDelete(string $id): bool
     {
+        if ((string) auth()->id() === (string) $id) {
+            return false;
+        }
+
         $user = $this->users->findById($id);
         if (! $user) {
             return false;
@@ -86,6 +93,10 @@ class UserManagementService
     public function delete(string $id): string
     {
         return DB::transaction(function () use ($id) {
+            if ((string) auth()->id() === (string) $id) {
+                return 'self_delete';
+            }
+
             $user = $this->users->findById($id);
             if (! $user) {
                 return 'not_found';

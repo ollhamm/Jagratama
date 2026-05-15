@@ -207,6 +207,65 @@ class WorkflowApprovalEngine
         });
     }
 
+    public function resubmitDocument(Document $document): DocumentWorkflowInstance
+    {
+        return DB::transaction(function () use ($document) {
+            // Ambil instance yang rejected
+            $instance = DocumentWorkflowInstance::query()
+                ->where('document_id', $document->id)
+                ->where('status', DocumentStatus::REJECTED)
+                ->latest('started_at')
+                ->first();
+
+            if (! $instance) {
+                throw new DomainException('Tidak ada dokumen yang berstatus rejected.');
+            }
+
+            // Ambil approval yang ditolak
+            $rejectedApproval = DocumentApproval::query()
+                ->where('document_id', $document->id)
+                ->where('status', ApprovalStatus::REJECTED)
+                ->orderByDesc('step_order')
+                ->first();
+
+            if (! $rejectedApproval) {
+                throw new DomainException('Approval yang ditolak tidak ditemukan.');
+            }
+
+            $rejectedStepOrder = $rejectedApproval->step_order;
+
+            // Reset approval yang ditolak menjadi PENDING kembali
+            $rejectedApproval->update([
+                'status'      => ApprovalStatus::PENDING,
+                'notes'       => null,
+                'approved_at' => null,
+                'approved_by' => $document->created_by,
+            ]);
+
+            // Aktifkan kembali instance dari step yang ditolak
+            $instance->update([
+                'status'              => DocumentStatus::IN_REVIEW,
+                'current_step_order'  => $rejectedStepOrder,
+                'finished_at'         => null,
+            ]);
+
+            // Update dokumen
+            $document->update([
+                'current_status'      => DocumentStatus::IN_REVIEW,
+                'current_step_order'  => $rejectedStepOrder,
+            ]);
+
+            $this->notifications->notifyApprovalPending($document, $rejectedApproval->role_id);
+
+            Log::info('dokumen_disubmit_ulang', [
+                'document_id'       => $document->id,
+                'resume_step_order' => $rejectedStepOrder,
+            ]);
+
+            return $instance;
+        });
+    }
+
     private function completeDocument(Document $document, DocumentWorkflowInstance $instance): void
     {
         $instance->update([

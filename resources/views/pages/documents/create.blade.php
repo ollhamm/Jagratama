@@ -44,8 +44,8 @@
             </div>
 
             <div>
-                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Lampiran Dokumen (wajib PDF, hanya satu file)</label>
-                <input type="file" name="attachment" accept="application/pdf,.pdf" required class="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-300" />
+                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Lampiran Dokumen (wajib Word .doc/.docx, hanya satu file)</label>
+                <input type="file" name="attachment" accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required class="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-300" />
             </div>
 
             <div class="flex items-center justify-end gap-2">

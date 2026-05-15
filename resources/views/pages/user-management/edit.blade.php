@@ -20,6 +20,7 @@
         <form method="POST" action="{{ route('app.users.update', $user->id) }}" class="space-y-4">
             @csrf
             @method('PUT')
+
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Nama</label>
@@ -45,41 +46,66 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Organisasi User (opsional)</label>
-                    <select name="organization_id" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90">
-                        <option value="">-</option>
-                        @foreach($organizations as $organization)
-                            <option value="{{ $organization->id }}" @selected(old('organization_id', $user->organization_id) === $organization->id)>{{ $organization->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Organisasi Role (opsional)</label>
-                    <select name="role_organization_id" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90">
-                        <option value="">Global</option>
-                        @foreach($organizations as $organization)
-                            <option value="{{ $organization->id }}" @selected(old('role_organization_id', $roleOrganizationId) === $organization->id)>{{ $organization->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Organisasi User (opsional)</label>
+                <select name="organization_id" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90">
+                    <option value="">-</option>
+                    @foreach($organizations as $organization)
+                        <option value="{{ $organization->id }}" @selected(old('organization_id', $user->organization_id) === $organization->id)>{{ $organization->name }}</option>
+                    @endforeach
+                </select>
             </div>
 
-            <div>
-                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
-                <div class="grid grid-cols-2 gap-2 md:grid-cols-3">
-                    @foreach($roles as $role)
-                        <label class="flex items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-800">
-                            <input
-                                type="checkbox"
-                                name="role_ids[]"
-                                value="{{ $role->id }}"
-                                @checked(in_array($role->id, old('role_ids', $assignedRoleIds), true))
-                            >
-                            <span>{{ $role->code }}</span>
-                        </label>
-                    @endforeach
+            {{-- Role + Organisasi Role: auto-select berdasarkan role yang dipilih --}}
+            <div
+                x-data="{
+                    selectedRole: '{{ old('role_id', $assignedRoleId) }}',
+                    roleOrgMap: {{ Js::from($roleOrgMap) }},
+                    get autoOrgId() {
+                        return this.roleOrgMap[this.selectedRole] ?? '';
+                    }
+                }"
+                class="space-y-4"
+            >
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
+                    @if($isSelf)
+                        <p class="mb-2 rounded-lg bg-warning-50 px-4 py-2 text-sm text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">
+                            Anda tidak dapat mengubah role akun Anda sendiri.
+                        </p>
+                    @endif
+                    <select
+                        name="role_id"
+                        x-model="selectedRole"
+                        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90 {{ $isSelf ? 'opacity-50 cursor-not-allowed' : '' }}"
+                        @disabled($isSelf)
+                        required
+                    >
+                        <option value="">-- Pilih Role --</option>
+                        @foreach($roles as $role)
+                            <option value="{{ $role->id }}" @selected(old('role_id', $assignedRoleId) === $role->id)>{{ $role->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Organisasi Role
+                        <span class="ml-1 text-xs text-gray-400">(otomatis sesuai role)</span>
+                    </label>
+                    {{-- Hidden input yang dikirim ke server --}}
+                    <input type="hidden" name="role_organization_id" :value="autoOrgId">
+                    {{-- Select visual (disabled, hanya tampilan) --}}
+                    <select
+                        x-effect="$el.value = autoOrgId"
+                        disabled
+                        class="h-11 w-full rounded-lg border border-gray-300 bg-gray-50 px-4 text-sm text-gray-500 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                    >
+                        <option value="">-- Global --</option>
+                        @foreach($organizations as $organization)
+                            <option value="{{ $organization->id }}">{{ $organization->name }}</option>
+                        @endforeach
+                    </select>
                 </div>
             </div>
 

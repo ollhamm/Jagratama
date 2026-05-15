@@ -10,6 +10,7 @@ use App\Repositories\Eloquent\ApprovalRepository;
 use App\Repositories\Eloquent\DocumentRepository;
 use App\Repositories\Eloquent\UserManagementRepository;
 use App\Repositories\Eloquent\WorkflowRepository;
+use Carbon\Carbon;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -30,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Carbon::setToStringFormat('d/m/Y H:i');
+        date_default_timezone_set(config('app.timezone'));
     }
 }

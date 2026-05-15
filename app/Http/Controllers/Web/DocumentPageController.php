@@ -18,6 +18,8 @@ use DomainException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Barryvdh\DomPDF\Facade\Pdf;
+use PhpOffice\PhpWord\IOFactory as WordIOFactory;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class DocumentPageController extends Controller
@@ -165,12 +167,63 @@ class DocumentPageController extends Controller
         }
 
         try {
-            $this->documents->submit($document, auth()->user(), $request->validated('signature_value'));
+            $this->documents->submit($document, auth()->user());
         } catch (DomainException $exception) {
             return redirect()->route('app.documents.show', $id)->with('error', $exception->getMessage());
         }
 
         return redirect()->route('app.documents.show', $id)->with('success', 'Dokumen berhasil disubmit.');
+    }
+
+    public function resubmitForm(string $id): View|RedirectResponse
+    {
+        $document = $this->documents->findForUser($id, auth()->user());
+
+        if (! $document) {
+            return redirect()->route('app.documents.index')->with('error', 'Dokumen tidak ditemukan.');
+        }
+
+        if ($document->current_status->value !== 'REJECTED') {
+            return redirect()->route('app.documents.show', $id)->with('error', 'Dokumen tidak dalam status rejected.');
+        }
+
+        if ($document->created_by !== auth()->id()) {
+            return redirect()->route('app.documents.show', $id)->with('error', 'Anda tidak berhak melakukan submit ulang.');
+        }
+
+        $document->loadMissing(['documentType', 'organization', 'attachments', 'approvals.approver']);
+
+        $rejectedApproval = $document->approvals
+            ->where('status', \App\Enums\ApprovalStatus::REJECTED)
+            ->sortByDesc('step_order')
+            ->first();
+
+        return view('pages.documents.resubmit', [
+            'title'           => 'Edit & Submit Ulang',
+            'document'        => $document,
+            'rejectedApproval' => $rejectedApproval,
+        ]);
+    }
+
+    public function resubmit(\Illuminate\Http\Request $request, string $id): RedirectResponse
+    {
+        $document = $this->documents->findForUser($id, auth()->user());
+
+        if (! $document) {
+            return redirect()->route('app.documents.index')->with('error', 'Dokumen tidak ditemukan.');
+        }
+
+        $request->validate([
+            'attachment' => ['required', 'file', 'mimes:doc,docx', 'max:10240'],
+        ]);
+
+        try {
+            $this->documents->resubmit($document, auth()->user(), $request->file('attachment'));
+        } catch (DomainException $exception) {
+            return redirect()->route('app.documents.resubmit.form', $id)->with('error', $exception->getMessage());
+        }
+
+        return redirect()->route('app.documents.show', $id)->with('success', 'Dokumen berhasil disubmit ulang.');
     }
 
     public function destroy(string $id): RedirectResponse
@@ -234,6 +287,58 @@ class DocumentPageController extends Controller
         }, 'dokumen-final-'.$document->id.'.txt');
     }
 
+    public function streamAsPdf(string $id, string $attachmentId): \Illuminate\Http\Response|RedirectResponse
+    {
+        $document = $this->documents->findForUser($id, auth()->user());
+        if (! $document) {
+            return redirect()->route('app.documents.index')->with('error', 'Dokumen tidak ditemukan.');
+        }
+
+        $attachment = DocumentAttachment::query()
+            ->where('id', $attachmentId)
+            ->where('document_id', $document->id)
+            ->first();
+
+        if (! $attachment || ! Storage::exists($attachment->file_path)) {
+            return redirect()->route('app.documents.show', $document->id)->with('error', 'Lampiran tidak ditemukan.');
+        }
+
+        $path = Storage::path($attachment->file_path);
+
+        try {
+            $phpWord   = WordIOFactory::load($path);
+            $htmlWriter = WordIOFactory::createWriter($phpWord, 'HTML');
+
+            ob_start();
+            $htmlWriter->save('php://output');
+            $html = ob_get_clean();
+
+            // Pastikan tidak ada buffer sisa yang bisa mengacaukan header
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+
+            $pdfContent = Pdf::loadHTML($html)
+                ->setPaper('a4', 'portrait')
+                ->output();
+
+            return response($pdfContent, 200, [
+                'Content-Type'        => 'application/pdf',
+                'Content-Disposition' => 'inline; filename="preview.pdf"',
+                'Cache-Control'       => 'no-store, no-cache',
+            ]);
+        } catch (\Throwable $e) {
+            // Jika konversi gagal, tampilkan halaman error ringan bukan download
+            return response(
+                '<html><body style="font-family:sans-serif;padding:2rem;color:#666">
+                    <p>Preview tidak tersedia. Silakan gunakan tombol <strong>Download .docx</strong>.</p>
+                </body></html>',
+                200,
+                ['Content-Type' => 'text/html']
+            );
+        }
+    }
+
     public function previewAttachment(string $id, string $attachmentId): BinaryFileResponse|RedirectResponse
     {
         $document = $this->documents->findForUser($id, auth()->user());
@@ -256,11 +361,18 @@ class DocumentPageController extends Controller
         }
 
         $path = Storage::path($attachment->file_path);
-        $mimeType = $attachment->file_type ?: 'application/pdf';
+        $filename = basename($attachment->file_path);
+        $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+
+        $mimeType = match ($ext) {
+            'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'doc'  => 'application/msword',
+            default => $attachment->file_type ?: 'application/octet-stream',
+        };
 
         return response()->file($path, [
             'Content-Type' => $mimeType,
-            'Content-Disposition' => 'inline; filename="'.basename($attachment->file_path).'"',
+            'Content-Disposition' => 'inline; filename="'.$filename.'"',
             'X-Content-Type-Options' => 'nosniff',
         ]);
     }

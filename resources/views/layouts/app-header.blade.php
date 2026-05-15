@@ -30,8 +30,7 @@
 
             <!-- Logo (mobile only) -->
             <a href="/" class="xl:hidden">
-                <img class="dark:hidden" src="/images/logo/logo.svg" alt="Logo" />
-                <img class="hidden dark:block" src="/images/logo/logo-dark.svg" alt="Logo" />
+                <img src="/images/logo/jagratama-logo.png" alt="Jagratama Logo" height="40" />
             </a>
 
             <!-- Application Menu Toggle (mobile only) -->

@@ -19,8 +19,7 @@ class StoreUserManagementRequest extends FormRequest
             'password' => ['required', 'string', 'min:8'],
             'organization_id' => ['nullable', 'uuid', 'exists:organizations,id'],
             'is_active' => ['nullable', 'boolean'],
-            'role_ids' => ['required', 'array', 'min:1'],
-            'role_ids.*' => ['uuid', 'exists:roles,id'],
+            'role_id' => ['required', 'uuid', 'exists:roles,id'],
             'role_organization_id' => ['nullable', 'uuid', 'exists:organizations,id'],
         ];
     }

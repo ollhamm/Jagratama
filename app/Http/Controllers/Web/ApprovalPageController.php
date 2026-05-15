@@ -27,10 +27,22 @@ class ApprovalPageController extends Controller
         $pendingApprovals = $this->approvals->pending($request->user(), $filters, 'approval_page');
         $historyApprovals = $this->approvals->history($request->user(), $filters, 'approval_history_page');
 
+        // Load relasi lengkap untuk dokumen approval aktif pertama
+        $activeApproval = $pendingApprovals->first();
+        if ($activeApproval) {
+            $activeApproval->document->loadMissing([
+                'attachments',
+                'workflowInstances.workflow.steps.role',
+                'approvals.workflowStep.role',
+                'approvals.approver',
+            ]);
+        }
+
         return view('pages.approvals.pending', [
-            'title' => 'Approval Dokumen',
+            'title'            => 'Approval Dokumen',
             'pendingApprovals' => $pendingApprovals,
             'historyApprovals' => $historyApprovals,
+            'activeApproval'   => $activeApproval,
         ]);
     }
 

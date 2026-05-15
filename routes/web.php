@@ -31,10 +31,13 @@ Route::middleware(['auth', 'active'])->group(function () use ($pengajuRoles) {
         Route::post('/app/documents', [DocumentPageController::class, 'store'])->name('app.documents.store');
         Route::delete('/app/documents/{id}', [DocumentPageController::class, 'destroy'])->name('app.documents.destroy');
         Route::post('/app/documents/{id}/submit', [DocumentPageController::class, 'submit'])->name('app.documents.submit');
+        Route::get('/app/documents/{id}/resubmit', [DocumentPageController::class, 'resubmitForm'])->name('app.documents.resubmit.form');
+        Route::post('/app/documents/{id}/resubmit', [DocumentPageController::class, 'resubmit'])->name('app.documents.resubmit');
     });
 
     Route::get('/app/documents/{id}', [DocumentPageController::class, 'show'])->name('app.documents.show');
     Route::get('/app/documents/{id}/attachments/{attachmentId}/preview', [DocumentPageController::class, 'previewAttachment'])->name('app.documents.attachments.preview');
+    Route::get('/app/documents/{id}/attachments/{attachmentId}/pdf', [DocumentPageController::class, 'streamAsPdf'])->name('app.documents.attachments.pdf');
     Route::get('/app/documents/{id}/download', [DocumentPageController::class, 'download'])->name('app.documents.download');
 
     Route::get('/app/approvals/pending', [ApprovalPageController::class, 'pending'])->name('app.approvals.pending');

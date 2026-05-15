@@ -73,7 +73,7 @@ class DocumentService
         });
     }
 
-    public function submit(Document $document, User $actor, string $signatureValue): void
+    public function submit(Document $document, User $actor): void
     {
         if ($document->current_status !== DocumentStatus::DRAFT) {
             throw new DomainException('Dokumen hanya bisa disubmit dari status DRAFT.');
@@ -83,19 +83,46 @@ class DocumentService
             throw new DomainException('Hanya pengaju yang dapat submit dokumen.');
         }
 
-        if (blank($signatureValue)) {
-            throw new DomainException('Tanda tangan pengaju wajib diisi sebelum submit.');
-        }
-
-        $document->update([
-            'submitter_signature' => $signatureValue,
-        ]);
-
         $this->workflowEngine->submitDocument($document);
 
         Log::info('dokumen_disubmit', [
             'document_id' => $document->id,
             'submitted_by' => $actor->id,
+        ]);
+    }
+
+    public function resubmit(Document $document, User $actor, UploadedFile $newFile): void
+    {
+        if ($document->current_status !== DocumentStatus::REJECTED) {
+            throw new DomainException('Dokumen hanya bisa disubmit ulang dari status REJECTED.');
+        }
+
+        if ($document->created_by !== $actor->id) {
+            throw new DomainException('Hanya pengaju yang dapat submit ulang dokumen.');
+        }
+
+        DB::transaction(function () use ($document, $newFile) {
+            // Hapus lampiran lama dan simpan file baru
+            $document->loadMissing('attachments');
+            foreach ($document->attachments as $old) {
+                Storage::delete($old->file_path);
+                $old->delete();
+            }
+
+            $path = $newFile->store('documents');
+            $this->documents->createAttachment([
+                'document_id' => $document->id,
+                'file_path'   => $path,
+                'file_type'   => $newFile->getClientMimeType() ?? 'application/octet-stream',
+                'uploaded_at' => now(),
+            ]);
+
+            $this->workflowEngine->resubmitDocument($document);
+        });
+
+        Log::info('dokumen_resubmit', [
+            'document_id'    => $document->id,
+            'resubmitted_by' => $actor->id,
         ]);
     }
 

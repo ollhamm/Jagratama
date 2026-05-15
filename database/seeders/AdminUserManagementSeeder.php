@@ -29,22 +29,10 @@ class AdminUserManagementSeeder extends Seeder
                 'password' => 'password',
                 'is_active' => true,
             ],
-            [
-                'name' => 'Super Admin Jagratama',
-                'email' => 'superadmin@jagratama.local',
-                'password' => 'password',
-                'is_active' => true,
-            ],
-            [
-                'name' => 'Operator Admin Jagratama',
-                'email' => 'operator.admin@jagratama.local',
-                'password' => 'password',
-                'is_active' => true,
-            ],
         ];
 
         foreach ($adminUsers as $adminData) {
-            $user = User::query()->updateOrCreate(
+            $user = User::query()->firstOrCreate(
                 ['email' => $adminData['email']],
                 [
                     'id' => (string) Str::uuid(),
