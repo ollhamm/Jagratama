@@ -27,12 +27,6 @@
                 <svg x-show="!$store.sidebar.isMobileOpen" data-feather="menu" width="20" height="20" class="stroke-current"></svg>
                 <svg x-show="$store.sidebar.isMobileOpen" data-feather="x" width="20" height="20" class="stroke-current"></svg>
             </button>
-
-            <!-- Logo (mobile only) -->
-            <a href="/" class="xl:hidden">
-                <img src="/images/logo/jagratama-logo.png" alt="Jagratama Logo" height="40" />
-            </a>
-
             <!-- Application Menu Toggle (mobile only) -->
             <button @click="toggleApplicationMenu()"
                 class="flex items-center justify-center w-10 h-10 text-gray-700 rounded-lg z-99999 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 xl:hidden">

@@ -21,6 +21,7 @@ class ApprovalPageController extends Controller
     {
         $filters = [
             'search' => $request->validated('search'),
+            'status' => $request->validated('status'),
             'per_page' => $request->validated('per_page') ?? 10,
         ];
 

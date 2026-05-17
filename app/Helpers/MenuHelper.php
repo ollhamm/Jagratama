@@ -23,6 +23,12 @@ class MenuHelper
                 'roles' => ['PENGAJU'],
             ],
             [
+                'icon' => 'upload',
+                'name' => 'Publish Dokumen',
+                'path' => '/app/publish',
+                'roles' => ['PENGAJU'],
+            ],
+            [
                 'icon' => 'task',
                 'name' => 'Approval',
                 'path' => '/app/approvals/pending',
@@ -96,6 +102,7 @@ class MenuHelper
             'user-profile' => 'user',
             'task' => 'check-square',
             'forms' => 'file-text',
+            'upload' => 'upload-cloud',
             'tables' => 'table',
             'documents' => 'file-text',
             'approval' => 'check-square',

@@ -54,6 +54,10 @@ class ApprovalRepository implements ApprovalRepositoryInterface
             $query->whereHas('document', fn ($q) => $q->where('title', 'like', "%{$search}%"));
         }
 
+        if (! empty($filters['status'])) {
+            $query->where('status', $filters['status']);
+        }
+
         return $query->latest('approved_at')->paginate($perPage, ['*'], $pageName)->withQueryString();
     }
 

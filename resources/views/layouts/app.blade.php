@@ -12,6 +12,104 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
     <script src="https://unpkg.com/feather-icons"></script>
 
+    <!-- Select2 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css">
+    <style>
+        /* ===== Select2 — Tailwind theme override ===== */
+        .select2-container { width: 100% !important; }
+
+        .select2-container--default .select2-selection--single {
+            height: 2.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            background-color: transparent;
+            display: flex;
+            align-items: center;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            color: #1f2937;
+            font-size: 0.875rem;
+            line-height: 1.25rem;
+            padding-left: 1rem;
+            padding-right: 2rem;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 2.75rem;
+            right: 0.5rem;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__placeholder {
+            color: #9ca3af;
+        }
+        .select2-container--default.select2-container--focus .select2-selection--single,
+        .select2-container--default.select2-container--open .select2-selection--single {
+            border-color: var(--color-brand-500, #3b82f6);
+            outline: none;
+        }
+        .select2-dropdown {
+            border: 1px solid #d1d5db;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / .1);
+        }
+        .select2-container--default .select2-search--dropdown .select2-search__field {
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.875rem;
+            outline: none;
+        }
+        .select2-container--default .select2-results__option--highlighted[aria-selected] {
+            background-color: var(--color-brand-500, #3b82f6);
+        }
+        .select2-container--default .select2-results__option[aria-selected=true] {
+            background-color: #eff6ff;
+            color: #1d4ed8;
+        }
+
+        /* ===== Dark mode ===== */
+        .dark .select2-container--default .select2-selection--single {
+            border-color: #374151;
+            background-color: transparent;
+        }
+        .dark .select2-container--default .select2-selection--single .select2-selection__rendered {
+            color: rgba(255,255,255,0.9);
+        }
+        .dark .select2-dropdown {
+            background-color: #111827;
+            border-color: #374151;
+            color: rgba(255,255,255,0.9);
+        }
+        .dark .select2-container--default .select2-search--dropdown .select2-search__field {
+            background-color: #1f2937;
+            border-color: #374151;
+            color: rgba(255,255,255,0.9);
+        }
+        .dark .select2-container--default .select2-results__option {
+            background-color: #111827;
+            color: rgba(255,255,255,0.8);
+        }
+        .dark .select2-container--default .select2-results__option[aria-selected=true] {
+            background-color: #1e3a5f;
+            color: #93c5fd;
+        }
+        .dark .select2-container--default .select2-results__option--highlighted[aria-selected] {
+            background-color: var(--color-brand-500, #3b82f6);
+            color: #fff;
+        }
+        .dark .select2-selection__arrow b { border-color: #9ca3af transparent transparent; }
+        .dark .select2-container--open .select2-selection__arrow b { border-color: transparent transparent #9ca3af; }
+
+        /* Disabled state */
+        .select2-container--default.select2-container--disabled .select2-selection--single {
+            background-color: #f9fafb;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+        .dark .select2-container--default.select2-container--disabled .select2-selection--single {
+            background-color: #1f2937;
+        }
+    </style>
+
     <!-- Alpine.js -->
     {{-- <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script> --}}
 
@@ -134,6 +232,34 @@
     </div>
 
     @stack('modals')
+
+    <!-- jQuery + Select2 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js"></script>
+    <script>
+        function initSelect2() {
+            $('select').not('[disabled]').not('[data-no-select2]').each(function () {
+                if ($(this).hasClass('select2-hidden-accessible')) return;
+                const count = $(this).find('option').length;
+                $(this).select2({
+                    width: '100%',
+                    minimumResultsForSearch: count > 6 ? 0 : Infinity,
+                    placeholder: $(this).find('option[value=""]').text() || '',
+                    allowClear: false,
+                });
+            });
+        }
+
+        // Inisialisasi setelah Alpine selesai agar x-model sudah set nilai awal
+        document.addEventListener('alpine:initialized', initSelect2);
+
+        // Inisialisasi ulang saat Select2 perlu sinkron dengan Alpine x-model
+        document.addEventListener('alpine:initialized', function () {
+            $('select[x-model]').not('[disabled]').on('select2:select select2:unselect', function () {
+                $(this).trigger('change');
+            });
+        });
+    </script>
 
 </body>
 

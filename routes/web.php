@@ -4,9 +4,11 @@ use App\Http\Controllers\ApprovalController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
+use App\Http\Controllers\PublicDocumentController;
 use App\Http\Controllers\SignatureController;
 use App\Http\Controllers\Web\ApprovalPageController;
 use App\Http\Controllers\Web\DocumentPageController;
+use App\Http\Controllers\Web\PublishPageController;
 use App\Http\Controllers\Web\UserManagementPageController;
 use Illuminate\Support\Facades\Route;
 
@@ -26,6 +28,9 @@ Route::middleware(['auth', 'active'])->group(function () use ($pengajuRoles) {
 
     // Blade UI routes
     Route::middleware('role:'.$pengajuRoles)->group(function () {
+        Route::get('/app/publish', [PublishPageController::class, 'index'])->name('app.publish.index');
+        Route::post('/app/publish/{id}', [PublishPageController::class, 'publish'])->name('app.publish.publish');
+
         Route::get('/app/documents', [DocumentPageController::class, 'index'])->name('app.documents.index');
         Route::get('/app/documents/create', [DocumentPageController::class, 'create'])->name('app.documents.create');
         Route::post('/app/documents', [DocumentPageController::class, 'store'])->name('app.documents.store');
@@ -65,5 +70,9 @@ Route::middleware(['auth', 'active'])->group(function () use ($pengajuRoles) {
 
     Route::post('/signatures', [SignatureController::class, 'store']);
 });
+
+// Public document routes — no auth required
+Route::get('/jagratama/{id}', [PublicDocumentController::class, 'show'])->name('public.document.show');
+Route::get('/jagratama/{id}/pdf', [PublicDocumentController::class, 'pdf'])->name('public.document.pdf');
 
 Route::view('/error-404', 'pages.errors.error-404', ['title' => 'Error 404'])->name('error-404');

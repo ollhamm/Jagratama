@@ -59,16 +59,23 @@
     @mouseenter="if (!$store.sidebar.isExpanded) $store.sidebar.setHovered(true)"
     @mouseleave="$store.sidebar.setHovered(false)">
     <!-- Logo Section -->
-    <div class="pt-8 pb-7 flex"
+    <div class="pt-6 pb-5 flex items-center"
         :class="(!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen) ?
         'xl:justify-center' :
         'justify-start'">
         <a href="/">
+            {{-- Logo penuh: saat expanded / hover / mobile open --}}
             <img x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen"
-                src="/images/logo/jagratama-logo.png" alt="Jagratama Logo" width="150" height="40" />
+                src="/images/logo/jagratama-logo.png"
+                alt="Jagratama Logo"
+                class="h-6 w-auto object-contain sm:h-8 xl:h-10"
+                style="max-width: 120px;" />
+
+            {{-- Logo ikon kecil: saat sidebar collapsed (desktop only) --}}
             <img x-show="!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen"
-                src="/images/logo/jagratama-logo.png" alt="Jagratama Logo" width="40" height="40"
-                class="object-contain" />
+                src="/images/logo/jagratama-logo.png"
+                alt="Jagratama Logo"
+                class="h-8 w-8 object-contain" />
         </a>
     </div>
 

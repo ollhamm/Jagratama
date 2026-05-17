@@ -33,6 +33,8 @@ class Document extends Model
         'submitted_at',
         'completed_at',
         'submitter_signature',
+        'public_file_path',
+        'published_at',
     ];
 
     protected function casts(): array
@@ -42,6 +44,7 @@ class Document extends Model
             'current_step_order' => 'integer',
             'submitted_at' => 'datetime',
             'completed_at' => 'datetime',
+            'published_at' => 'datetime',
             'created_at' => 'datetime',
         ];
     }
