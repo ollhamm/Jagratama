@@ -14,22 +14,25 @@ class PublishPageController extends Controller
 {
     public function index(): View
     {
-        $userId = auth()->id();
+        $user = auth()->user();
+        $isAdmin = $user->userRoles()->whereHas('role', fn ($q) => $q->where('code', 'ADMIN'))->exists();
 
-        $pending = Document::query()
+        $pendingQuery = Document::query()
             ->with(['documentType', 'organization'])
-            ->where('created_by', $userId)
             ->where('current_status', DocumentStatus::COMPLETED)
-            ->whereNull('public_file_path')
-            ->latest('completed_at')
-            ->get();
+            ->whereNull('public_file_path');
 
-        $history = Document::query()
+        $historyQuery = Document::query()
             ->with(['documentType', 'organization'])
-            ->where('created_by', $userId)
-            ->whereNotNull('public_file_path')
-            ->latest('published_at')
-            ->get();
+            ->whereNotNull('public_file_path');
+
+        if (! $isAdmin) {
+            $pendingQuery->where('created_by', $user->id);
+            $historyQuery->where('created_by', $user->id);
+        }
+
+        $pending = $pendingQuery->latest('completed_at')->get();
+        $history = $historyQuery->latest('published_at')->get();
 
         return view('pages.publish.index', [
             'title' => 'Publish Dokumen',

@@ -68,8 +68,8 @@
             <img x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen"
                 src="/images/logo/jagratama-logo.png"
                 alt="Jagratama Logo"
-                class="h-6 w-auto object-contain sm:h-8 xl:h-10"
-                style="max-width: 120px;" />
+                class="object-contain"
+                style="max-width: 200px;" />
 
             {{-- Logo ikon kecil: saat sidebar collapsed (desktop only) --}}
             <img x-show="!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen"

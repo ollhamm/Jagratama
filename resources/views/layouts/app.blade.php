@@ -99,6 +99,10 @@
         .dark .select2-selection__arrow b { border-color: #9ca3af transparent transparent; }
         .dark .select2-container--open .select2-selection__arrow b { border-color: transparent transparent #9ca3af; }
 
+        /* Prevent dropdown from causing horizontal scrollbar */
+        body { overflow-x: hidden; }
+        .select2-dropdown { overflow: hidden; }
+
         /* Disabled state */
         .select2-container--default.select2-container--disabled .select2-selection--single {
             background-color: #f9fafb;
@@ -246,6 +250,7 @@
                     minimumResultsForSearch: count > 6 ? 0 : Infinity,
                     placeholder: $(this).find('option[value=""]').text() || '',
                     allowClear: false,
+                    dropdownParent: $('body'),
                 });
             });
         }

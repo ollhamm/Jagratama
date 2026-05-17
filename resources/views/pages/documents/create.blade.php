@@ -16,6 +16,27 @@
 
         <form method="POST" action="{{ route('app.documents.store') }}" enctype="multipart/form-data" class="space-y-4">
             @csrf
+
+            @if($isAdmin)
+            <div class="rounded-lg border border-warning-200 bg-warning-50 p-4 dark:border-warning-700/40 dark:bg-warning-500/10">
+                <label class="mb-1 block text-sm font-semibold text-warning-700 dark:text-warning-400">
+                    Dibuat atas nama (Pengaju) <span class="text-red-500">*</span>
+                </label>
+                <p class="mb-2 text-xs text-warning-600 dark:text-warning-400">Pilih user Pengaju yang akan menjadi pemilik dokumen ini.</p>
+                <div class="w-full">
+                    <select name="on_behalf_of" required
+                        class="h-11 w-full rounded-lg border border-warning-300 bg-white px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-warning-600 dark:bg-gray-900 dark:text-white/90">
+                        <option value="">-- Pilih Pengaju --</option>
+                        @foreach($pengajuUsers as $pUser)
+                            <option value="{{ $pUser->id }}" @selected(old('on_behalf_of') === $pUser->id)>
+                                {{ $pUser->name }} ({{ $pUser->email }})
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+            @endif
+
             <div>
                 <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Judul Dokumen</label>
                 <input name="title" value="{{ old('title') }}" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90" required />

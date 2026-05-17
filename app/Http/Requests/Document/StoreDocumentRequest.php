@@ -42,6 +42,7 @@ class StoreDocumentRequest extends FormRequest
             'attachment' => ['required', 'file', 'mimes:doc,docx', 'max:10240'],
             'attachments' => ['nullable', 'array', 'max:1'],
             'attachments.*' => ['file', 'mimes:doc,docx', 'max:10240'],
+            'on_behalf_of' => ['nullable', 'uuid', 'exists:users,id'],
         ];
     }
 

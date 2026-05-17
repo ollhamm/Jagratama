@@ -12,6 +12,8 @@ use App\Models\DocumentApproval;
 use App\Models\DocumentAttachment;
 use App\Models\DocumentType;
 use App\Models\Organization;
+use App\Models\Role;
+use App\Models\User;
 use App\Models\Workflow;
 use App\Services\DocumentService;
 use DomainException;
@@ -46,8 +48,22 @@ class DocumentPageController extends Controller
 
     public function create(): View
     {
+        $isAdmin = auth()->user()->userRoles()
+            ->whereHas('role', fn ($q) => $q->where('code', 'ADMIN'))
+            ->exists();
+
+        $pengajuUsers = $isAdmin
+            ? User::query()
+                ->whereHas('userRoles.role', fn ($q) => $q->where('code', 'PENGAJU'))
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'email'])
+            : collect();
+
         return view('pages.documents.create', [
-            'title' => 'Buat Pengajuan',
+            'title'       => 'Buat Pengajuan',
+            'isAdmin'     => $isAdmin,
+            'pengajuUsers' => $pengajuUsers,
             'documentTypes' => DocumentType::query()->orderBy('name')->get(),
             'workflows' => Workflow::query()
                 ->where('is_active', true)

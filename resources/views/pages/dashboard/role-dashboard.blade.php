@@ -16,24 +16,23 @@
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
             <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Pengajuan Saya</h3>
-                <form method="GET" action="{{ route('dashboard') }}" class="flex flex-wrap items-center gap-2">
+                <form method="GET" action="{{ route('dashboard') }}" class="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center">
                     <input
                         type="text"
                         name="my_search"
                         value="{{ request('my_search') }}"
                         placeholder="Cari judul dokumen"
-                        class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90 sm:w-48"
+                        class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90 sm:w-44"
                     />
-                    <select
-                        name="my_status"
-                        class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90 sm:w-40"
-                    >
-                        <option value="">Semua Status</option>
-                        @foreach (['DRAFT', 'SUBMITTED', 'IN_REVIEW', 'REJECTED', 'APPROVED', 'COMPLETED'] as $status)
-                            <option value="{{ $status }}" @selected(request('my_status') === $status)>{{ $status }}</option>
-                        @endforeach
-                    </select>
-                    <button class="w-full rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Cari</button>
+                    <div class="w-full sm:w-40">
+                        <select name="my_status" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90">
+                            <option value="">Semua Status</option>
+                            @foreach (['DRAFT', 'SUBMITTED', 'IN_REVIEW', 'REJECTED', 'APPROVED', 'COMPLETED'] as $status)
+                                <option value="{{ $status }}" @selected(request('my_status') === $status)>{{ $status }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <button class="h-10 w-full rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Cari</button>
                 </form>
             </div>
 
@@ -84,7 +83,7 @@
             <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
                 <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Menunggu Approval</h3>
-                    <form method="GET" action="{{ route('dashboard') }}" class="flex flex-wrap items-center gap-2">
+                    <form method="GET" action="{{ route('dashboard') }}" class="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center">
                         <input
                             type="text"
                             name="pending_search"
@@ -92,7 +91,7 @@
                             placeholder="Cari dokumen"
                             class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90 sm:w-44"
                         />
-                        <button class="w-full rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Cari</button>
+                        <button class="h-10 w-full rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Cari</button>
                     </form>
                 </div>
 

@@ -14,22 +14,24 @@
             <div class="mb-4 rounded-lg bg-error-50 px-4 py-3 text-sm text-error-700">{{ session('error') }}</div>
         @endif
 
-        <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <form method="GET" action="{{ route('app.documents.index') }}" class="flex flex-wrap items-center gap-2">
+        <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <form method="GET" action="{{ route('app.documents.index') }}" class="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center">
                 <input
                     type="text"
                     name="search"
                     value="{{ request('search') }}"
                     placeholder="Cari judul dokumen"
-                    class="h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90"
+                    class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90 sm:w-48"
                 />
-                <select name="status" class="h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90">
-                    <option value="">Semua Status</option>
-                    @foreach ($statuses as $status)
-                        <option value="{{ $status->value }}" @selected(request('status') === $status->value)>{{ $status->value }}</option>
-                    @endforeach
-                </select>
-                <button type="submit" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Cari</button>
+                <div class="w-full sm:w-40">
+                    <select name="status" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90">
+                        <option value="">Semua Status</option>
+                        @foreach ($statuses as $status)
+                            <option value="{{ $status->value }}" @selected(request('status') === $status->value)>{{ $status->value }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <button type="submit" class="h-10 w-full rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Cari</button>
             </form>
 
             <a href="{{ route('app.documents.create') }}" class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900">Buat Pengajuan</a>

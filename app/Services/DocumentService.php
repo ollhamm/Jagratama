@@ -45,7 +45,7 @@ class DocumentService
                 'title' => $payload['title'],
                 'document_type_id' => $payload['document_type_id'],
                 'organization_id' => $payload['organization_id'],
-                'created_by' => $user->id,
+                'created_by' => $payload['on_behalf_of'] ?? $user->id,
                 'current_status' => DocumentStatus::DRAFT,
                 'current_step_order' => 0,
             ]);
@@ -79,7 +79,9 @@ class DocumentService
             throw new DomainException('Dokumen hanya bisa disubmit dari status DRAFT.');
         }
 
-        if ($document->created_by !== $actor->id) {
+        $isAdmin = $actor->userRoles()->whereHas('role', fn ($q) => $q->where('code', 'ADMIN'))->exists();
+
+        if (! $isAdmin && $document->created_by !== $actor->id) {
             throw new DomainException('Hanya pengaju yang dapat submit dokumen.');
         }
 
@@ -97,7 +99,9 @@ class DocumentService
             throw new DomainException('Dokumen hanya bisa disubmit ulang dari status REJECTED.');
         }
 
-        if ($document->created_by !== $actor->id) {
+        $isAdmin = $actor->userRoles()->whereHas('role', fn ($q) => $q->where('code', 'ADMIN'))->exists();
+
+        if (! $isAdmin && $document->created_by !== $actor->id) {
             throw new DomainException('Hanya pengaju yang dapat submit ulang dokumen.');
         }
 
@@ -132,7 +136,9 @@ class DocumentService
             throw new DomainException('Hanya dokumen berstatus DRAFT yang dapat dihapus.');
         }
 
-        if ($document->created_by !== $actor->id) {
+        $isAdmin = $actor->userRoles()->whereHas('role', fn ($q) => $q->where('code', 'ADMIN'))->exists();
+
+        if (! $isAdmin && $document->created_by !== $actor->id) {
             throw new DomainException('Hanya pengaju pembuat dokumen yang dapat menghapus draft.');
         }
 

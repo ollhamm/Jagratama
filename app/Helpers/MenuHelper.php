@@ -20,13 +20,13 @@ class MenuHelper
                 'icon' => 'forms',
                 'name' => 'Pengajuan',
                 'path' => '/app/documents',
-                'roles' => ['PENGAJU'],
+                'roles' => ['PENGAJU', 'ADMIN'],
             ],
             [
                 'icon' => 'upload',
                 'name' => 'Publish Dokumen',
                 'path' => '/app/publish',
-                'roles' => ['PENGAJU'],
+                'roles' => ['PENGAJU', 'ADMIN'],
             ],
             [
                 'icon' => 'task',

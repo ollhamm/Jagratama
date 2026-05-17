@@ -12,7 +12,7 @@ use App\Http\Controllers\Web\PublishPageController;
 use App\Http\Controllers\Web\UserManagementPageController;
 use Illuminate\Support\Facades\Route;
 
-$pengajuRoles = 'PENGAJU';
+$pengajuRoles = 'PENGAJU,ADMIN';
 
 Route::redirect('/', '/dashboard');
 Route::redirect('/login', '/signin')->name('login');

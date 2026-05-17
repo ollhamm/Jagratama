@@ -181,25 +181,27 @@
 
         {{-- ===== RIWAYAT APPROVAL ===== --}}
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
-            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
                 <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Riwayat Approval</h3>
-                <form method="GET" action="{{ route('app.approvals.pending') }}" class="flex flex-wrap items-center gap-2">
+                <form method="GET" action="{{ route('app.approvals.pending') }}" class="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center">
                     <input
                         type="text"
                         name="search"
                         value="{{ request('search') }}"
                         placeholder="Cari judul dokumen"
-                        class="h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90"
+                        class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90 sm:w-48"
                     />
-                    <select name="status" class="h-10 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90">
-                        <option value="">Semua Status</option>
-                        <option value="APPROVED" @selected(request('status') === 'APPROVED')>APPROVED</option>
-                        <option value="REJECTED" @selected(request('status') === 'REJECTED')>REJECTED</option>
-                        <option value="SKIPPED" @selected(request('status') === 'SKIPPED')>SKIPPED</option>
-                    </select>
-                    <button type="submit" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Cari</button>
+                    <div class="w-full sm:w-36">
+                        <select name="status" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90">
+                            <option value="">Semua Status</option>
+                            <option value="APPROVED" @selected(request('status') === 'APPROVED')>APPROVED</option>
+                            <option value="REJECTED" @selected(request('status') === 'REJECTED')>REJECTED</option>
+                            <option value="SKIPPED" @selected(request('status') === 'SKIPPED')>SKIPPED</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="h-10 w-full rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Cari</button>
                     @if(request('search') || request('status'))
-                        <a href="{{ route('app.approvals.pending') }}" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300">Reset</a>
+                        <a href="{{ route('app.approvals.pending') }}" class="h-10 flex items-center justify-center rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 sm:w-auto w-full">Reset</a>
                     @endif
                 </form>
             </div>
