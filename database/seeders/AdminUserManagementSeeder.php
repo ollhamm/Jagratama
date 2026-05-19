@@ -25,7 +25,7 @@ class AdminUserManagementSeeder extends Seeder
         $adminUsers = [
             [
                 'name' => 'Admin Jagratama',
-                'email' => 'admin@jagratama.local',
+                'email' => 'admin@jagratama.id',
                 'password' => 'password',
                 'is_active' => true,
             ],
