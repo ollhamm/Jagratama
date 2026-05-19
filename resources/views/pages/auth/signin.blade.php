@@ -72,9 +72,6 @@
                                                 Keep me logged in
                                             </label>
                                         </div>
-                                        <a href="/reset-password" class="text-brand-500 hover:text-brand-600 dark:text-brand-400 text-sm">
-                                            Forgot password?
-                                        </a>
                                     </div>
                                     <!-- Button -->
                                     <div>
@@ -86,12 +83,6 @@
                                     </div>
                                 </div>
                             </form>
-                            <div class="mt-5">
-                                <p class="text-center text-sm font-normal text-gray-700 sm:text-start dark:text-gray-400">
-                                    Don't have an account?
-                                    <a href="/signup" class="text-brand-500 hover:text-brand-600 dark:text-brand-400">Sign Up</a>
-                                </p>
-                            </div>
                         </div>
                     </div>
                 </div>
