@@ -38,13 +38,13 @@
             @endif
 
             <div>
-                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Judul Dokumen</label>
+                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Judul Dokumen <span class="text-red-500">*</span></label>
                 <input name="title" value="{{ old('title') }}" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90" required />
             </div>
 
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Tipe Surat</label>
+                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Tipe Surat <span class="text-red-500">*</span></label>
                     <select name="workflow_id" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90" required>
                         <option value="">Pilih tipe</option>
                         @foreach($workflows as $workflow)
@@ -65,8 +65,8 @@
             </div>
 
             <div>
-                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Lampiran Dokumen (wajib Word .doc/.docx, hanya satu file)</label>
-                <input type="file" name="attachment" accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required class="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-300" />
+                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Lampiran Dokumen (wajib PDF, hanya satu file) <span class="text-red-500">*</span></label>
+                <input type="file" name="attachment" accept=".pdf,application/pdf" required class="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-300" />
             </div>
 
             <div class="flex items-center justify-end gap-2">

@@ -167,6 +167,7 @@ class WorkflowSeeder extends Seeder
             ],
             OrganizationType::BLM->value => [
                 'KETUA_BLM',
+                'KOMISI_B_BLM',
                 'PENANGGUNG_JAWAB_MAHASISWA',
                 'KA_SUB_BAG_AKADEMIK',
                 'KA_BAG_AKADEMIK_UMUM',
@@ -229,6 +230,7 @@ class WorkflowSeeder extends Seeder
                 ],
                 OrganizationType::BLM->value => [
                     'KETUA_BLM',
+                    'KOMISI_B_BLM',
                     'PENANGGUNG_JAWAB_MAHASISWA',
                     'KA_SUB_BAG_AKADEMIK',
                     'KA_BAG_AKADEMIK_UMUM',

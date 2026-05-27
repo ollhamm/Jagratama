@@ -8,6 +8,7 @@ use App\Enums\SignatureType;
 use App\Models\Document;
 use App\Models\DocumentApproval;
 use App\Models\DocumentWorkflowInstance;
+use App\Models\PublicSignature;
 use App\Models\Signature;
 use App\Models\User;
 use App\Repositories\Contracts\ApprovalRepositoryInterface;
@@ -102,11 +103,21 @@ class WorkflowApprovalEngine
             ]);
 
             if (! blank($signatureValue)) {
+                $approval->load('workflowStep.role');
+                $publicSig = PublicSignature::query()->create([
+                    'document_id'    => $approval->document_id,
+                    'signer_name'    => $approver->name,
+                    'role_name'      => $approval->workflowStep->role->name ?? ($approval->workflowStep->role->code ?? '-'),
+                    'signature_value' => $signatureValue,
+                    'signed_at'      => now(),
+                ]);
+
                 Signature::query()->create([
                     'document_approval_id' => $approval->id,
-                    'signature_type' => SignatureType::BARCODE,
-                    'signature_value' => $signatureValue,
-                    'signed_at' => now(),
+                    'signature_type'       => SignatureType::BARCODE,
+                    'signature_value'      => $signatureValue,
+                    'signed_at'            => now(),
+                    'public_signature_id'  => $publicSig->id,
                 ]);
             }
 

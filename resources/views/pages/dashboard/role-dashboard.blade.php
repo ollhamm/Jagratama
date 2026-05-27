@@ -6,7 +6,7 @@
     <div class="mb-5 flex flex-wrap gap-2">
         <a href="{{ route('app.documents.index') }}" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Kelola Dokumen</a>
         @if ($mode === 'pengaju')
-            <a href="{{ route('app.documents.create') }}" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Buat Pengajuan</a>
+            <a href="{{ route('app.documents.create') }}" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300"> + Buat Pengajuan</a>
         @else
             <a href="{{ route('app.approvals.pending') }}" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Halaman Approval</a>
         @endif

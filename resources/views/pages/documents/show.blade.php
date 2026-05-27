@@ -10,6 +10,11 @@
         @if(session('error'))
             <div class="rounded-lg bg-error-50 px-4 py-3 text-sm text-error-700">{{ session('error') }}</div>
         @endif
+        @if($errors->any())
+            <div class="rounded-lg bg-error-50 px-4 py-3 text-sm text-error-700">
+                <ul class="list-disc pl-5">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+            </div>
+        @endif
 
         @php
             $currentStatus = $document->current_status->value ?? $document->current_status;
@@ -31,7 +36,7 @@
                             @if($primaryPdfUrl)
                                 <div class="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-800">
                                     <span class="truncate text-xs font-medium text-gray-600 dark:text-gray-300">{{ basename($primaryAttachment->file_path) }}</span>
-                                    <a href="{{ $primaryAttachmentUrl }}" class="ml-3 shrink-0 rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700">Download .docx</a>
+                                    <a href="{{ $primaryAttachmentUrl }}" class="ml-3 shrink-0 rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700">Download PDF</a>
                                 </div>
                                 <iframe
                                     src="{{ $primaryPdfUrl }}"
@@ -60,8 +65,24 @@
                                 <p class="mt-1 text-xs font-medium text-gray-800 dark:text-white/90">{{ $document->organization->name ?? '-' }}</p>
                             </div>
 
-                            <form method="POST" action="{{ route('app.documents.submit', $document->id) }}">
+                            <form id="submit-form" method="POST" action="{{ route('app.documents.submit', $document->id) }}" class="space-y-3">
                                 @csrf
+
+                                {{-- Tanda Tangan Pengaju --}}
+                                <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700 space-y-2">
+                                    <p class="text-xs font-medium uppercase text-gray-500">Tanda Tangan Pengaju <span class="text-red-500">*</span></p>
+                                    <div id="submitter-sig-thumb-wrap" class="hidden">
+                                        <img id="submitter-sig-thumb" src="#" alt="Tanda Tangan"
+                                            class="mx-auto max-h-16 rounded border border-gray-200 bg-white">
+                                    </div>
+                                    <button type="button" id="open-submitter-sig-modal"
+                                        class="w-full rounded-lg border-2 border-dashed border-brand-300 py-2 text-xs font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-500/40 dark:text-brand-400 dark:hover:bg-brand-500/10">
+                                        Buka Pad Tanda Tangan
+                                    </button>
+                                    <input type="hidden" name="signature_value" id="submitter-signature-value-input">
+                                    <p id="submitter-sig-error" class="hidden text-xs text-red-500">Tanda tangan wajib diisi sebelum mengajukan.</p>
+                                </div>
+
                                 <button type="submit" class="w-full rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Ajukan Sekarang</button>
                             </form>
                         </div>
@@ -78,7 +99,7 @@
                             @if($primaryPdfUrl)
                                 <div class="flex items-center justify-between border-b border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-700 dark:bg-gray-800">
                                     <span class="truncate text-xs font-medium text-gray-600 dark:text-gray-300">{{ basename($primaryAttachment->file_path) }}</span>
-                                    <a href="{{ $primaryAttachmentUrl }}" class="ml-3 shrink-0 rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700">Download .docx</a>
+                                    <a href="{{ $primaryAttachmentUrl }}" class="ml-3 shrink-0 rounded bg-blue-600 px-3 py-1 text-xs font-medium text-white hover:bg-blue-700">Download PDF</a>
                                 </div>
                                 <iframe
                                     src="{{ $primaryPdfUrl }}"
@@ -337,50 +358,78 @@
                             ->flatMap(function ($approval) {
                                 return $approval->signatures->map(function ($signature) use ($approval) {
                                     return [
-                                        'signature_value' => $signature->signature_value,
-                                        'role_name'       => $approval->workflowStep->role->name ?? ($approval->workflowStep->role->code ?? '-'),
-                                        'approver_name'   => $approval->approver->name ?? '-',
-                                        'approver_id'     => $approval->approved_by,
-                                        'signed_at'       => optional($signature->signed_at)->format('d/m/Y H:i') ?? '-',
+                                        'signature_value'     => $signature->signature_value,
+                                        'role_name'           => $approval->workflowStep->role->name ?? ($approval->workflowStep->role->code ?? '-'),
+                                        'approver_name'       => $approval->approver->name ?? '-',
+                                        'approver_id'         => $approval->approved_by,
+                                        'signed_at'           => optional($signature->signed_at)->format('d/m/Y H:i') ?? '-',
+                                        'public_signature_id' => $signature->public_signature_id,
                                     ];
                                 });
                             });
-                        $authId      = auth()->id();
-                        $isPengaju   = $document->created_by === $authId;
+                        $authId       = auth()->id();
+                        $userRoleIds  = auth()->user()->userRoles()->pluck('role_id')->all();
+                        // Semua peserta flow: pengaju + siapapun yang punya role di approval list dokumen ini
+                        $flowRoleIds  = $document->approvals->pluck('role_id')->all();
+                        $canDownloadAll = $document->created_by === $authId
+                            || $document->approvals->contains('approved_by', $authId)
+                            || count(array_intersect($userRoleIds, $flowRoleIds)) > 0;
                     @endphp
 
-                    @if($approvalSignatures->isNotEmpty())
+                    @if($document->submitter_signature || $approvalSignatures->isNotEmpty())
                         <div class="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                            @foreach($approvalSignatures as $item)
-                                @php $canDownload = $isPengaju || $item['approver_id'] === $authId; @endphp
-                                <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
-                                    <div class="flex items-start justify-between gap-2">
+                            @if($document->submitter_signature)
+                                <div class="rounded-lg border border-brand-200 p-3 dark:border-brand-700/40 flex flex-col items-center gap-2">
+                                    <div class="flex w-full items-start justify-between gap-2">
                                         <div>
-                                            <p class="text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $item['role_name'] }}</p>
-                                            <p class="mt-0.5 text-[11px] text-gray-500">{{ $item['approver_name'] }}</p>
-                                            <p class="text-[11px] text-gray-400">{{ $item['signed_at'] }}</p>
+                                            <p class="text-xs font-semibold text-gray-700 dark:text-gray-200">Pengaju</p>
+                                            <p class="mt-0.5 text-[11px] text-gray-500">{{ $document->creator->name ?? '-' }}</p>
                                         </div>
-                                        @if($canDownload && $item['signature_value'])
-                                            <a href="{{ $item['signature_value'] }}"
-                                                download="ttd-{{ \Illuminate\Support\Str::slug($item['role_name']) }}.png"
-                                                title="Download tanda tangan"
+                                        @if($canDownloadAll && $document->public_submitter_signature_id)
+                                            <button type="button"
+                                                onclick="downloadSigQr(this, 'qr-pengaju-{{ \Illuminate\Support\Str::slug($document->creator->name ?? 'pengaju') }}.png')"
+                                                title="Download QR Code"
                                                 class="shrink-0 rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50 hover:text-brand-600 dark:border-gray-700 dark:hover:bg-gray-800">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
                                                 </svg>
-                                            </a>
+                                            </button>
                                         @endif
                                     </div>
-                                    @if($item['signature_value'])
-                                        <img src="{{ $item['signature_value'] }}"
-                                            class="mt-2 mx-auto max-h-20 rounded border border-gray-100"
-                                            alt="Tanda Tangan">
+                                    @if($document->public_submitter_signature_id)
+                                        <div class="sig-qr" data-url="{{ route('public.signature.show', $document->public_submitter_signature_id) }}"></div>
+                                        <p class="text-[10px] text-gray-400">Scan untuk verifikasi</p>
+                                    @endif
+                                </div>
+                            @endif
+                            @foreach($approvalSignatures as $item)
+                                <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700 flex flex-col items-center gap-2">
+                                    <div class="flex w-full items-start justify-between gap-2">
+                                        <div>
+                                            <p class="text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $item['role_name'] }}</p>
+                                            <p class="mt-0.5 text-[11px] text-gray-500">{{ $item['approver_name'] }}</p>
+                                            <p class="text-[10px] text-gray-400">{{ $item['signed_at'] }}</p>
+                                        </div>
+                                        @if($canDownloadAll && $item['public_signature_id'])
+                                            <button type="button"
+                                                onclick="downloadSigQr(this, 'qr-{{ \Illuminate\Support\Str::slug($item['role_name']) }}.png')"
+                                                title="Download QR Code"
+                                                class="shrink-0 rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50 hover:text-brand-600 dark:border-gray-700 dark:hover:bg-gray-800">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                                                </svg>
+                                            </button>
+                                        @endif
+                                    </div>
+                                    @if($item['public_signature_id'])
+                                        <div class="sig-qr" data-url="{{ route('public.signature.show', $item['public_signature_id']) }}"></div>
+                                        <p class="text-[10px] text-gray-400">Scan untuk verifikasi</p>
                                     @endif
                                 </div>
                             @endforeach
                         </div>
                     @else
-                        <p class="mt-1 text-sm text-gray-500">Belum ada tanda tangan approval.</p>
+                        <p class="mt-1 text-sm text-gray-500">Belum ada tanda tangan.</p>
                     @endif
                 </div>
             </div>
@@ -389,6 +438,64 @@
 @endsection
 
 @push('modals')
+    @if($currentStatus === 'DRAFT' && $document->created_by === auth()->id())
+    <div id="submitter-sig-modal" class="fixed hidden items-center justify-center bg-gray-900/40 p-4" style="inset:0; z-index:9999999; position:fixed;">
+        <div class="w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-900" x-data="{ sigTab: 'draw' }">
+            <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4 dark:border-gray-700">
+                <h3 class="text-base font-semibold text-gray-800 dark:text-white/90">Tanda Tangan Pengaju</h3>
+                <button type="button" id="close-submitter-sig-modal" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="flex gap-2 px-6 pt-4">
+                <button type="button" @click="sigTab='draw'"
+                    :class="sigTab==='draw' ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'"
+                    class="rounded-lg px-4 py-1.5 text-sm font-medium transition">Gambar</button>
+                <button type="button" @click="sigTab='upload'"
+                    :class="sigTab==='upload' ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'"
+                    class="rounded-lg px-4 py-1.5 text-sm font-medium transition">Upload Gambar</button>
+            </div>
+            <div class="px-6 py-4">
+                <div x-show="sigTab === 'draw'">
+                    <canvas id="submitter-sig-canvas"
+                        class="w-full rounded-xl border-2 border-dashed border-gray-300 bg-white dark:border-gray-600"
+                        height="400" style="touch-action:none; cursor:crosshair; display:block;"></canvas>
+                    <div class="mt-2 flex items-center justify-between">
+                        <p class="text-xs text-gray-400">Gunakan mouse atau jari untuk menggambar tanda tangan</p>
+                        <button type="button" id="clear-submitter-sig" class="text-xs text-red-400 hover:text-red-600">Hapus</button>
+                    </div>
+                </div>
+                <div x-show="sigTab === 'upload'" class="space-y-3">
+                    <div class="flex h-48 flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 dark:border-gray-600 dark:bg-gray-800">
+                        <svg class="mb-3 h-10 w-10 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4-4m0 0l4 4m-4-4v9M20 12a8 8 0 11-16 0 8 8 0 0116 0z"/>
+                        </svg>
+                        <p class="text-sm text-gray-500 dark:text-gray-400">Pilih gambar tanda tangan</p>
+                        <label class="mt-3 cursor-pointer rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">
+                            Pilih File
+                            <input type="file" id="submitter-sig-upload" accept="image/*" class="hidden">
+                        </label>
+                    </div>
+                    <img id="submitter-sig-preview" src="#" alt="Preview"
+                        class="hidden mx-auto max-h-40 rounded-xl border border-gray-200 bg-white">
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4 dark:border-gray-700">
+                <button type="button" id="close-submitter-sig-modal-cancel"
+                    class="rounded-lg border border-gray-300 px-5 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">
+                    Batal
+                </button>
+                <button type="button" id="confirm-submitter-sig"
+                    class="rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600">
+                    Gunakan Tanda Tangan
+                </button>
+            </div>
+        </div>
+    </div>
+    @endif
+
     @if(isset($pendingApprovalForUser) && $pendingApprovalForUser && $pendingApprovalForUser->workflowStep->is_required_signature)
     <div id="sig-modal" class="fixed hidden items-center justify-center bg-gray-900/40 p-4" style="inset:0; z-index:9999999; position:fixed;">
         <div class="w-full max-w-2xl rounded-2xl bg-white dark:bg-gray-900" x-data="{ sigTab: 'draw' }">
@@ -459,6 +566,155 @@
 @endpush
 
 @push('scripts')
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            document.querySelectorAll('.sig-qr').forEach(function (el) {
+                const url = el.dataset.url;
+                if (!url) return;
+                new QRCode(el, {
+                    text: url,
+                    width: 300,
+                    height: 300,
+                    colorDark: '#101828',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M,
+                });
+                // Kecilkan tampilan di kartu tapi biarkan canvas tetap 300px untuk download
+                const canvas = el.querySelector('canvas');
+                const img    = el.querySelector('img');
+                if (canvas) { canvas.style.width = '72px'; canvas.style.height = '72px'; }
+                if (img)    { img.style.width = '72px'; img.style.height = '72px'; }
+            });
+        });
+
+        function downloadSigQr(btn, filename) {
+            const card = btn.closest('.flex.flex-col');
+            const canvas = card ? card.querySelector('.sig-qr canvas') : null;
+            if (!canvas) { alert('QR belum siap, coba lagi.'); return; }
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL('image/png');
+            a.download = filename;
+            a.click();
+        }
+
+        function downloadSigPng(dataUrl, filename) {
+            if (!dataUrl) return;
+            const parts = dataUrl.split(',');
+            const mime  = (parts[0].match(/:(.*?);/) || [])[1] || 'image/png';
+            const bstr  = atob(parts[1]);
+            const u8arr = new Uint8Array(bstr.length);
+            for (let i = 0; i < bstr.length; i++) u8arr[i] = bstr.charCodeAt(i);
+            const blob = new Blob([u8arr], { type: mime });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href     = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+
+    @if($currentStatus === 'DRAFT' && $document->created_by === auth()->id())
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/4.1.7/signature_pad.umd.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const modal        = document.getElementById('submitter-sig-modal');
+            const openBtn      = document.getElementById('open-submitter-sig-modal');
+            const closeBtn     = document.getElementById('close-submitter-sig-modal');
+            const closeBtnCancel = document.getElementById('close-submitter-sig-modal-cancel');
+            const confirmBtn   = document.getElementById('confirm-submitter-sig');
+            const canvas       = document.getElementById('submitter-sig-canvas');
+            const clearBtn     = document.getElementById('clear-submitter-sig');
+            const uploadInput  = document.getElementById('submitter-sig-upload');
+            const previewImg   = document.getElementById('submitter-sig-preview');
+            const hiddenInput  = document.getElementById('submitter-signature-value-input');
+            const submitForm   = document.getElementById('submit-form');
+            const thumbWrap    = document.getElementById('submitter-sig-thumb-wrap');
+            const thumb        = document.getElementById('submitter-sig-thumb');
+            const sigError     = document.getElementById('submitter-sig-error');
+
+            let signaturePad = null;
+
+            function initPad() {
+                if (signaturePad) return;
+                signaturePad = new SignaturePad(canvas, {
+                    backgroundColor: 'rgb(255,255,255)',
+                    penColor: 'rgb(0,0,0)',
+                });
+                const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                canvas.width  = canvas.offsetWidth * ratio;
+                canvas.height = canvas.offsetHeight * ratio;
+                canvas.getContext('2d').scale(ratio, ratio);
+                signaturePad.clear();
+            }
+
+            function openModal() {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                requestAnimationFrame(() => initPad());
+            }
+
+            function closeModal() {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+
+            openBtn?.addEventListener('click', openModal);
+            closeBtn?.addEventListener('click', closeModal);
+            closeBtnCancel?.addEventListener('click', closeModal);
+            modal?.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+
+            clearBtn?.addEventListener('click', () => {
+                signaturePad?.clear();
+                if (uploadInput) uploadInput.value = '';
+                if (previewImg) { previewImg.src = '#'; previewImg.classList.add('hidden'); }
+            });
+
+            uploadInput?.addEventListener('change', function (e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    previewImg.src = ev.target.result;
+                    previewImg.classList.remove('hidden');
+                    signaturePad?.clear();
+                };
+                reader.readAsDataURL(file);
+            });
+
+            confirmBtn?.addEventListener('click', () => {
+                let value = '';
+                if (previewImg && !previewImg.classList.contains('hidden') && previewImg.src && previewImg.src !== '#' && previewImg.src !== window.location.href) {
+                    value = previewImg.src;
+                } else if (signaturePad && !signaturePad.isEmpty()) {
+                    value = signaturePad.toDataURL('image/png');
+                }
+                if (!value) return;
+
+                hiddenInput.value = value;
+                thumb.src = value;
+                thumbWrap.classList.remove('hidden');
+                openBtn.textContent = 'Ubah Tanda Tangan';
+                sigError?.classList.add('hidden');
+                closeModal();
+            });
+
+            submitForm?.addEventListener('submit', function (e) {
+                if (!hiddenInput.value) {
+                    e.preventDefault();
+                    sigError?.classList.remove('hidden');
+                    openBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    sigError?.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+    @endif
+
     @if(isset($pendingApprovalForUser) && $pendingApprovalForUser && $pendingApprovalForUser->workflowStep->is_required_signature)
     <script src="https://cdnjs.cloudflare.com/ajax/libs/signature_pad/4.1.7/signature_pad.umd.min.js"></script>
     <script>

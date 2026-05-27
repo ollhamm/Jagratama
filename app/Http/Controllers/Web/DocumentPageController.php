@@ -183,7 +183,7 @@ class DocumentPageController extends Controller
         }
 
         try {
-            $this->documents->submit($document, auth()->user());
+            $this->documents->submit($document, auth()->user(), $request->input('signature_value'));
         } catch (DomainException $exception) {
             return redirect()->route('app.documents.show', $id)->with('error', $exception->getMessage());
         }
@@ -230,7 +230,7 @@ class DocumentPageController extends Controller
         }
 
         $request->validate([
-            'attachment' => ['required', 'file', 'mimes:doc,docx', 'max:10240'],
+            'attachment' => ['required', 'file', 'mimes:pdf', 'max:10240'],
         ]);
 
         try {
@@ -319,40 +319,11 @@ class DocumentPageController extends Controller
             return redirect()->route('app.documents.show', $document->id)->with('error', 'Lampiran tidak ditemukan.');
         }
 
-        $path = Storage::path($attachment->file_path);
-
-        try {
-            $phpWord   = WordIOFactory::load($path);
-            $htmlWriter = WordIOFactory::createWriter($phpWord, 'HTML');
-
-            ob_start();
-            $htmlWriter->save('php://output');
-            $html = ob_get_clean();
-
-            // Pastikan tidak ada buffer sisa yang bisa mengacaukan header
-            while (ob_get_level() > 0) {
-                ob_end_clean();
-            }
-
-            $pdfContent = Pdf::loadHTML($html)
-                ->setPaper('a4', 'portrait')
-                ->output();
-
-            return response($pdfContent, 200, [
-                'Content-Type'        => 'application/pdf',
-                'Content-Disposition' => 'inline; filename="preview.pdf"',
-                'Cache-Control'       => 'no-store, no-cache',
-            ]);
-        } catch (\Throwable $e) {
-            // Jika konversi gagal, tampilkan halaman error ringan bukan download
-            return response(
-                '<html><body style="font-family:sans-serif;padding:2rem;color:#666">
-                    <p>Preview tidak tersedia. Silakan gunakan tombol <strong>Download .docx</strong>.</p>
-                </body></html>',
-                200,
-                ['Content-Type' => 'text/html']
-            );
-        }
+        return response(Storage::get($attachment->file_path), 200, [
+            'Content-Type'        => 'application/pdf',
+            'Content-Disposition' => 'inline; filename="preview.pdf"',
+            'Cache-Control'       => 'no-store, no-cache',
+        ]);
     }
 
     public function previewAttachment(string $id, string $attachmentId): BinaryFileResponse|RedirectResponse
@@ -381,6 +352,7 @@ class DocumentPageController extends Controller
         $ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
 
         $mimeType = match ($ext) {
+            'pdf'  => 'application/pdf',
             'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             'doc'  => 'application/msword',
             default => $attachment->file_type ?: 'application/octet-stream',

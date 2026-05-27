@@ -33,6 +33,7 @@ class Document extends Model
         'submitted_at',
         'completed_at',
         'submitter_signature',
+        'public_submitter_signature_id',
         'public_file_path',
         'published_at',
     ];

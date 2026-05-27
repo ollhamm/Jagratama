@@ -28,6 +28,7 @@ class Signature extends Model
         'signature_type',
         'signature_value',
         'signed_at',
+        'public_signature_id',
     ];
 
     protected function casts(): array

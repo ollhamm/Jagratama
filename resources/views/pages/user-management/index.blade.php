@@ -40,16 +40,18 @@
                     </select>
                 </div>
                 <button class="h-10 w-full rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Filter</button>
+                @if(request()->hasAny(['search', 'is_active', 'organization_id']))
+                    <a href="{{ route('app.users.index') }}" class="h-10 w-full rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5 flex items-center justify-center sm:w-auto">Reset</a>
+                @endif
             </form>
 
             <a href="{{ route('app.users.create') }}" class="rounded-lg bg-gray-900 px-4 py-2 text-center text-sm font-medium text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 sm:w-auto w-full">
-                Tambah User
+                + Tambah User
             </a>
         </div>
 
         {{-- Tabel --}}
-        <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
-            <div class="overflow-x-auto">
+        <div class="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
                 <table class="min-w-full">
                     <thead class="bg-gray-50 dark:bg-gray-800/70">
                         <tr>
@@ -111,7 +113,6 @@
                         @endforelse
                     </tbody>
                 </table>
-            </div>
         </div>
 
         <div class="mt-4">{{ $users->appends(request()->query())->links() }}</div>

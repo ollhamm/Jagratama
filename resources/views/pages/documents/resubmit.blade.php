@@ -63,7 +63,7 @@
 
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        File Word Baru <span class="text-red-500">*</span>
+                        File PDF Baru <span class="text-red-500">*</span>
                         <span class="ml-1 font-normal text-gray-400">(menggantikan file lama)</span>
                     </label>
                     @if($document->attachments->isNotEmpty())
@@ -72,7 +72,7 @@
                         </p>
                     @endif
                     <input type="file" name="attachment"
-                        accept=".doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        accept=".pdf,application/pdf"
                         required
                         class="block w-full text-sm text-gray-700 file:mr-4 file:rounded-lg file:border-0 file:bg-brand-50 file:px-4 file:py-2 file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-300" />
                 </div>

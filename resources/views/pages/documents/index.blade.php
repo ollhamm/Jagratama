@@ -34,7 +34,7 @@
                 <button type="submit" class="h-10 w-full rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Cari</button>
             </form>
 
-            <a href="{{ route('app.documents.create') }}" class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900">Buat Pengajuan</a>
+            <a href="{{ route('app.documents.create') }}" class="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900"> + Buat Pengajuan</a>
         </div>
 
         <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">

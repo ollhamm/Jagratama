@@ -39,9 +39,9 @@ class StoreDocumentRequest extends FormRequest
             'workflow_id' => ['nullable', 'uuid', 'exists:workflows,id'],
             'document_type_id' => ['required_without:workflow_id', 'nullable', 'uuid', 'exists:document_types,id'],
             'organization_id' => ['required', 'uuid', 'exists:organizations,id'],
-            'attachment' => ['required', 'file', 'mimes:doc,docx', 'max:10240'],
+            'attachment' => ['required', 'file', 'mimes:pdf', 'max:10240'],
             'attachments' => ['nullable', 'array', 'max:1'],
-            'attachments.*' => ['file', 'mimes:doc,docx', 'max:10240'],
+            'attachments.*' => ['file', 'mimes:pdf', 'max:10240'],
             'on_behalf_of' => ['nullable', 'uuid', 'exists:users,id'],
         ];
     }

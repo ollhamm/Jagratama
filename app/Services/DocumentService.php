@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\DocumentStatus;
 use App\Models\Document;
+use App\Models\PublicSignature;
 use App\Models\User;
 use App\Repositories\Contracts\DocumentRepositoryInterface;
 use DomainException;
@@ -73,7 +74,7 @@ class DocumentService
         });
     }
 
-    public function submit(Document $document, User $actor): void
+    public function submit(Document $document, User $actor, ?string $signatureValue = null): void
     {
         if ($document->current_status !== DocumentStatus::DRAFT) {
             throw new DomainException('Dokumen hanya bisa disubmit dari status DRAFT.');
@@ -83,6 +84,22 @@ class DocumentService
 
         if (! $isAdmin && $document->created_by !== $actor->id) {
             throw new DomainException('Hanya pengaju yang dapat submit dokumen.');
+        }
+
+        if ($signatureValue) {
+            $document->load('creator');
+            $publicSig = PublicSignature::query()->create([
+                'document_id'     => $document->id,
+                'signer_name'     => $document->creator->name ?? $actor->name,
+                'role_name'       => 'Pengaju',
+                'signature_value' => $signatureValue,
+                'signed_at'       => now(),
+            ]);
+
+            $document->update([
+                'submitter_signature'             => $signatureValue,
+                'public_submitter_signature_id'   => $publicSig->id,
+            ]);
         }
 
         $this->workflowEngine->submitDocument($document);

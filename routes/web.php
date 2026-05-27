@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DocumentController;
 use App\Http\Controllers\PublicDocumentController;
+use App\Http\Controllers\PublicSignatureController;
 use App\Http\Controllers\SignatureController;
 use App\Http\Controllers\Web\ApprovalPageController;
 use App\Http\Controllers\Web\DocumentPageController;
@@ -74,5 +75,6 @@ Route::middleware(['auth', 'active'])->group(function () use ($pengajuRoles) {
 // Public document routes — no auth required
 Route::get('/jagratama/{id}', [PublicDocumentController::class, 'show'])->name('public.document.show');
 Route::get('/jagratama/{id}/pdf', [PublicDocumentController::class, 'pdf'])->name('public.document.pdf');
+Route::get('/s/{id}', [PublicSignatureController::class, 'show'])->name('public.signature.show');
 
 Route::view('/error-404', 'pages.errors.error-404', ['title' => 'Error 404'])->name('error-404');
