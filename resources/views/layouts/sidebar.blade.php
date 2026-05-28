@@ -47,7 +47,14 @@
             return this.openSubmenus[key] || false;
         },
         isActive(path) {
-            return window.location.pathname === path || '{{ $currentPath }}' === path.replace(/^\//, '');
+            const current  = window.location.pathname.replace(/\/$/, '');
+            const bare     = path.replace(/\/$/, '');
+            const phpCurrent = '{{ $currentPath }}'.replace(/\/$/, '');
+            const menuBare   = bare.replace(/^\//, '');
+            return current === bare
+                || current.startsWith(bare + '/')
+                || phpCurrent === menuBare
+                || phpCurrent.startsWith(menuBare + '/');
         }
     }"
     :class="{

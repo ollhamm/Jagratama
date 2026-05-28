@@ -15,12 +15,12 @@ class ApprovalRepository implements ApprovalRepositoryInterface
 
     public function paginatePendingForUser(User $user, array $filters = [], int $perPage = 10, string $pageName = 'page'): LengthAwarePaginator
     {
+        $isAdmin     = $this->isAdmin($user);
         $userRoleIds = $user->userRoles()->pluck('role_id')->all();
 
         $query = DocumentApproval::query()
             ->with(['document.documentType', 'document.organization', 'workflowStep.role', 'approver'])
             ->where('status', ApprovalStatus::PENDING)
-            ->whereIn('role_id', $userRoleIds)
             ->whereExists(function ($q) {
                 $q->select(DB::raw(1))
                     ->from('document_workflow_instances')
@@ -28,6 +28,11 @@ class ApprovalRepository implements ApprovalRepositoryInterface
                     ->whereNull('document_workflow_instances.finished_at')
                     ->whereColumn('document_workflow_instances.current_step_order', 'document_approvals.step_order');
             });
+
+        // Admin bisa approve semua step, user lain hanya step sesuai role-nya
+        if (! $isAdmin) {
+            $query->whereIn('role_id', $userRoleIds);
+        }
 
         if (! $this->hasGlobalAccess($user)) {
             $organizationIds = $this->organizationIds($user);
@@ -63,13 +68,17 @@ class ApprovalRepository implements ApprovalRepositoryInterface
 
     public function findPendingByIdForUser(string $approvalId, User $user): ?DocumentApproval
     {
+        $isAdmin     = $this->isAdmin($user);
         $userRoleIds = $user->userRoles()->pluck('role_id')->all();
 
         $query = DocumentApproval::query()
             ->with(['document.organization', 'workflowStep.role'])
             ->where('id', $approvalId)
-            ->where('status', ApprovalStatus::PENDING)
-            ->whereIn('role_id', $userRoleIds);
+            ->where('status', ApprovalStatus::PENDING);
+
+        if (! $isAdmin) {
+            $query->whereIn('role_id', $userRoleIds);
+        }
 
         if (! $this->hasGlobalAccess($user)) {
             $organizationIds = $this->organizationIds($user);

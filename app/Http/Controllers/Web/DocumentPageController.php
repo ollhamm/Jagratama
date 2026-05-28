@@ -156,14 +156,21 @@ class DocumentPageController extends Controller
 
         $suggestedSignatureValue = base64_encode(json_encode($signaturePayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
-        $roleIds = auth()->user()->userRoles()->pluck('role_id');
-        $pendingApprovalForUser = DocumentApproval::query()
+        $authUser   = auth()->user();
+        $isAdmin    = $authUser->userRoles()->whereHas('role', fn ($q) => $q->where('code', 'ADMIN'))->exists();
+        $roleIds    = $authUser->userRoles()->pluck('role_id');
+
+        $pendingQuery = DocumentApproval::query()
             ->where('document_id', $document->id)
             ->where('status', ApprovalStatus::PENDING)
             ->where('step_order', $document->current_step_order)
-            ->whereIn('role_id', $roleIds)
-            ->with('workflowStep.role')
-            ->first();
+            ->with('workflowStep.role');
+
+        if (! $isAdmin) {
+            $pendingQuery->whereIn('role_id', $roleIds);
+        }
+
+        $pendingApprovalForUser = $pendingQuery->first();
 
         $approvalSignaturePayload = null;
         $suggestedApprovalSignatureValue = null;

@@ -19,22 +19,13 @@
 
             {{-- Admin: pilih pengaju --}}
             @if($isAdmin)
-            <div
-                x-data="{
-                    selectedPengaju: '{{ old('on_behalf_of') }}',
-                    orgsByUser: {{ Js::from($allOrgsByUser) }},
-                    selectedOrgId: '{{ old('organization_id') }}',
-                    get orgOptions() { return this.orgsByUser[this.selectedPengaju] ?? []; },
-                    onPengajuChange() { this.selectedOrgId = ''; },
-                }"
-                class="rounded-lg border border-warning-200 bg-warning-50 p-4 space-y-3 dark:border-warning-700/40 dark:bg-warning-500/10"
-            >
+            <div class="rounded-lg border border-warning-200 bg-warning-50 p-4 space-y-3 dark:border-warning-700/40 dark:bg-warning-500/10">
                 <div>
                     <label class="mb-1 block text-sm font-semibold text-warning-700 dark:text-warning-400">
                         Dibuat atas nama (Pengaju) <span class="text-red-500">*</span>
                     </label>
                     <p class="mb-2 text-xs text-warning-600 dark:text-warning-400">Pilih user Pengaju yang akan menjadi pemilik dokumen ini.</p>
-                    <select name="on_behalf_of" x-model="selectedPengaju" @change="onPengajuChange()" required
+                    <select id="pengaju-select" name="on_behalf_of" required
                         class="h-11 w-full rounded-lg border border-warning-300 bg-white px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-warning-600 dark:bg-gray-900 dark:text-white/90">
                         <option value="">-- Pilih Pengaju --</option>
                         @foreach($pengajuUsers as $pUser)
@@ -47,20 +38,13 @@
 
                 <div>
                     <label class="mb-1 block text-sm font-semibold text-warning-700 dark:text-warning-400">
-                        Organisasi <span class="text-red-500">*</span>
+                        Lingkup Jabatan (Organisasi)
                     </label>
-                    <input type="hidden" name="organization_id" x-model="selectedOrgId">
-                    <select
-                        x-model="selectedOrgId"
-                        :disabled="!selectedPengaju"
-                        :required="!!selectedPengaju"
-                        class="h-11 w-full rounded-lg border border-warning-300 bg-white px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-warning-600 dark:bg-gray-900 dark:text-white/90 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                    >
-                        <option value="" x-text="selectedPengaju ? '-- Pilih Organisasi --' : '-- Pilih pengaju dulu --'"></option>
-                        <template x-for="org in orgOptions" :key="org.id">
-                            <option :value="org.id" x-text="org.name"></option>
-                        </template>
-                    </select>
+                    <input type="hidden" id="org-hidden" name="organization_id" value="{{ old('organization_id') }}">
+                    <div id="org-display"
+                        class="h-11 flex items-center rounded-lg border border-warning-300 bg-gray-100 px-4 text-sm text-gray-500 dark:border-warning-600 dark:bg-gray-800 dark:text-gray-400">
+                        — pilih pengaju dulu —
+                    </div>
                 </div>
             </div>
             @else
@@ -201,6 +185,41 @@
         });
 
         populateWorkflows($cat.val());
+
+        // Admin: auto-fill lingkup jabatan saat pilih pengaju
+        const orgsByUser  = @json($allOrgsByUser ?? []);
+        const oldOrgId    = @json(old('organization_id') ?? '');
+        const $pengaju    = $('#pengaju-select');
+        const $orgHidden  = $('#org-hidden');
+        const $orgDisplay = $('#org-display');
+
+        function updateOrgFromPengaju(userId, preselect) {
+            const orgs = orgsByUser[userId] ?? [];
+
+            if (!userId) {
+                $orgHidden.val('');
+                $orgDisplay.text('— pilih pengaju dulu —');
+                return;
+            }
+
+            if (orgs.length === 0) {
+                $orgHidden.val('');
+                $orgDisplay.text('Pengaju ini belum memiliki lingkup jabatan.');
+                return;
+            }
+
+            const org = preselect ? (orgs.find(o => o.id === preselect) ?? orgs[0]) : orgs[0];
+            $orgHidden.val(org.id);
+            $orgDisplay.text(org.name);
+        }
+
+        if ($pengaju.length) {
+            $pengaju.on('change', function () {
+                updateOrgFromPengaju($(this).val(), '');
+            });
+
+            updateOrgFromPengaju($pengaju.val(), oldOrgId);
+        }
     });
 </script>
 @endpush

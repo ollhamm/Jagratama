@@ -8,6 +8,13 @@ use Illuminate\Database\Eloquent\Builder;
 
 trait BaseUserAccess
 {
+    private function isAdmin(User $user): bool
+    {
+        return $user->userRoles()
+            ->whereHas('role', fn (Builder $q) => $q->where('code', 'ADMIN'))
+            ->exists();
+    }
+
     private function hasGlobalAccess(User $user): bool
     {
         return $user->userRoles()
