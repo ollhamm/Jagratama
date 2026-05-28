@@ -48,7 +48,8 @@ class DocumentPageController extends Controller
 
     public function create(): View
     {
-        $isAdmin = auth()->user()->userRoles()
+        $user    = auth()->user();
+        $isAdmin = $user->userRoles()
             ->whereHas('role', fn ($q) => $q->where('code', 'ADMIN'))
             ->exists();
 
@@ -60,16 +61,45 @@ class DocumentPageController extends Controller
                 ->get(['id', 'name', 'email'])
             : collect();
 
+        // Org yang boleh dipilih pengaju = org yang di-assign via user_roles
+        $pengajuOrgIds = $user->userRoles()
+            ->whereNotNull('organization_id')
+            ->pluck('organization_id')
+            ->unique()
+            ->all();
+
+        $pengajuOrganizations = Organization::query()
+            ->whereIn('id', $pengajuOrgIds)
+            ->orderBy('name')
+            ->get();
+
+        // Untuk admin: kirim semua org ormawa (non JURUSAN, non SBH) agar bisa populate per pengaju via JS
+        $allOrgsByUser = $isAdmin
+            ? User::query()
+                ->whereHas('userRoles.role', fn ($q) => $q->where('code', 'PENGAJU'))
+                ->where('is_active', true)
+                ->with(['userRoles' => fn ($q) => $q->whereNotNull('organization_id'), 'userRoles.organization'])
+                ->get()
+                ->mapWithKeys(fn ($u) => [
+                    $u->id => $u->userRoles
+                        ->filter(fn ($ur) => $ur->organization !== null)
+                        ->map(fn ($ur) => ['id' => $ur->organization->id, 'name' => $ur->organization->name])
+                        ->values()
+                        ->all(),
+                ])
+            : [];
+
         return view('pages.documents.create', [
-            'title'       => 'Buat Pengajuan',
-            'isAdmin'     => $isAdmin,
-            'pengajuUsers' => $pengajuUsers,
-            'documentTypes' => DocumentType::query()->orderBy('name')->get(),
-            'workflows' => Workflow::query()
+            'title'                => 'Buat Pengajuan',
+            'isAdmin'              => $isAdmin,
+            'pengajuUsers'         => $pengajuUsers,
+            'pengajuOrganizations' => $pengajuOrganizations,
+            'allOrgsByUser'        => $allOrgsByUser,
+            'documentTypes'        => DocumentType::query()->orderBy('name')->get(),
+            'workflows'            => Workflow::query()
                 ->where('is_active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'organization_type', 'document_type_id']),
-            'organizations' => Organization::query()->orderBy('name')->get(),
         ]);
     }
 

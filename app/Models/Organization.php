@@ -47,6 +47,16 @@ class Organization extends Model
         return $this->hasMany(self::class, 'parent_id');
     }
 
+    public function descendants(): \Illuminate\Support\Collection
+    {
+        $result = collect();
+        foreach ($this->children as $child) {
+            $result->push($child);
+            $result = $result->merge($child->descendants());
+        }
+        return $result;
+    }
+
     public function users()
     {
         return $this->hasMany(User::class);

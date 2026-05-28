@@ -115,37 +115,61 @@ class UserManagementPageController extends Controller
     }
 
     /**
-     * Mapping role_code → organization type untuk auto-select Organisasi Role.
-     * Role yang tidak ada di sini dianggap global (org_id = null).
+     * Mapping role_code → daftar org yang relevan untuk dropdown "Organisasi Role".
+     * Role yang tidak ada di sini dianggap global (org_id = null, field disabled).
      */
     private function buildRoleOrgMap(Collection $roles, Collection $organizations): array
     {
-        $roleCodeToOrgType = [
-            'KETUA_SBH'                   => 'SBH',
-            'PEMBINA_SBH'                  => 'SBH',
-            'KETUA_HMJ'                    => 'HMJ',
-            'KAJUR'                        => 'HMJ',
-            'PJ_MAHASISWA_ALUMNI_JURUSAN'  => 'HMJ',
-            'KETUA_HMPS'                   => 'HMPS',
-            'KAPRODI'                      => 'HMPS',
-            'PRESIDEN_BEM'                 => 'BEM',
-            'MENTERI_MINAT_BAKAT_BEM'      => 'BEM',
-            'KETUA_BLM'                    => 'BLM',
-            'KOMISI_B_BLM'                 => 'BLM',
-            'KETUA_UKM'                    => 'UKM',
-            'PEMBINA_UKM'                  => 'UKM',
+        // Role dengan org_id null di user_roles = global
+        $globalRoles = [
+            'ADMIN', 'DIREKTUR', 'WADIR_II', 'WADIR_III',
+            'PRESIDEN_BEM', 'MENTERI_MINAT_BAKAT_BEM',
+            'KETUA_BLM', 'KOMISI_B_BLM',
+            'PENANGGUNG_JAWAB_MAHASISWA',
+            'KA_SUB_BAG_AKADEMIK', 'KA_BAG_AKADEMIK', 'KA_BAG_AKADEMIK_UMUM',
+            'KETUA_PANITIA',
         ];
 
-        // Kelompokkan org berdasarkan type untuk lookup cepat
+        // Role org-scoped: dipetakan ke tipe org yang relevan
+        $roleCodeToOrgTypes = [
+            'KETUA_SBH'                   => ['SBH'],
+            'PEMBINA_SBH'                 => ['SBH'],
+            'KAJUR'                       => ['JURUSAN'],
+            'PJ_MAHASISWA_ALUMNI_JURUSAN' => ['JURUSAN'],
+            'KETUA_HMJ'                   => ['HMJ'],
+            'KETUA_HMPS'                  => ['HMPS'],
+            'KAPRODI'                     => ['HMPS'],
+            'PEMBINA_UKM'                 => ['UKM'],
+            'KETUA_UKM'                   => ['UKM'],
+            // Pengaju bisa dari org tipe apapun kecuali JURUSAN dan SBH
+            'PENGAJU'                     => ['HMJ', 'HMPS', 'UKM', 'BEM', 'BLM'],
+        ];
+
         $orgByType = $organizations->groupBy(fn ($org) => $org->type instanceof \BackedEnum
             ? $org->type->value
             : (string) $org->type
         );
 
-        return $roles->mapWithKeys(function ($role) use ($roleCodeToOrgType, $orgByType) {
-            $orgType = $roleCodeToOrgType[$role->code] ?? null;
-            $orgId = $orgType ? ($orgByType->get($orgType)?->first()?->id) : null;
-            return [$role->id => $orgId];
+        return $roles->mapWithKeys(function ($role) use ($globalRoles, $roleCodeToOrgTypes, $orgByType) {
+            if (in_array($role->code, $globalRoles)) {
+                return [$role->id => ['global' => true, 'orgs' => []]];
+            }
+
+            $orgTypes = $roleCodeToOrgTypes[$role->code] ?? null;
+
+            if (! $orgTypes) {
+                return [$role->id => ['global' => true, 'orgs' => []]];
+            }
+
+            $orgs = collect();
+            foreach ($orgTypes as $type) {
+                $orgs = $orgs->merge($orgByType->get($type) ?? []);
+            }
+
+            return [$role->id => [
+                'global' => false,
+                'orgs'   => $orgs->map(fn ($o) => ['id' => $o->id, 'name' => $o->name])->values()->all(),
+            ]];
         })->all();
     }
 }

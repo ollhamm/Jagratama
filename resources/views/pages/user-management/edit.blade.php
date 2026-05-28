@@ -48,7 +48,7 @@
 
             <div>
                 <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Organisasi User (opsional)</label>
-                <select name="organization_id" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90">
+                <select name="organization_id" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                     <option value="">-</option>
                     @foreach($organizations as $organization)
                         <option value="{{ $organization->id }}" @selected(old('organization_id', $user->organization_id) === $organization->id)>{{ $organization->name }}</option>
@@ -56,57 +56,32 @@
                 </select>
             </div>
 
-            {{-- Role + Organisasi Role: auto-select berdasarkan role yang dipilih --}}
-            <div
-                x-data="{
-                    selectedRole: '{{ old('role_id', $assignedRoleId) }}',
-                    roleOrgMap: {{ Js::from($roleOrgMap) }},
-                    get autoOrgId() {
-                        return this.roleOrgMap[this.selectedRole] ?? '';
-                    }
-                }"
-                class="space-y-4"
-            >
-                <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
-                    @if($isSelf)
-                        <p class="mb-2 rounded-lg bg-warning-50 px-4 py-2 text-sm text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">
-                            Anda tidak dapat mengubah role akun Anda sendiri.
-                        </p>
-                    @endif
-                    <select
-                        name="role_id"
-                        x-model="selectedRole"
-                        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90 {{ $isSelf ? 'opacity-50 cursor-not-allowed' : '' }}"
-                        @disabled($isSelf)
-                        required
-                    >
-                        <option value="">-- Pilih Role --</option>
-                        @foreach($roles as $role)
-                            <option value="{{ $role->id }}" @selected(old('role_id', $assignedRoleId) === $role->id)>{{ $role->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Role</label>
+                @if($isSelf)
+                    <p class="mb-2 rounded-lg bg-warning-50 px-4 py-2 text-sm text-warning-700 dark:bg-warning-500/10 dark:text-warning-400">
+                        Anda tidak dapat mengubah role akun Anda sendiri.
+                    </p>
+                @endif
+                <select id="role-select" name="role_id" required
+                    {{ $isSelf ? 'disabled' : '' }}
+                    class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 {{ $isSelf ? 'opacity-50 cursor-not-allowed' : '' }}">
+                    <option value="">-- Pilih Role --</option>
+                    @foreach($roles as $role)
+                        <option value="{{ $role->id }}" @selected(old('role_id', $assignedRoleId) === $role->id)>{{ $role->name }}</option>
+                    @endforeach
+                </select>
+            </div>
 
-                <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                        Organisasi Role
-                        <span class="ml-1 text-xs text-gray-400">(otomatis sesuai role)</span>
-                    </label>
-                    {{-- Hidden input yang dikirim ke server --}}
-                    <input type="hidden" name="role_organization_id" :value="autoOrgId">
-                    {{-- Select visual (disabled, hanya tampilan) --}}
-                    <select
-                        x-effect="$el.value = autoOrgId"
-                        disabled
-                        class="h-11 w-full rounded-lg border border-gray-300 bg-gray-50 px-4 text-sm text-gray-500 cursor-not-allowed dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                    >
-                        <option value="">-- Global --</option>
-                        @foreach($organizations as $organization)
-                            <option value="{{ $organization->id }}">{{ $organization->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Lingkup Jabatan
+                    <span id="role-org-hint" class="ml-1 text-xs text-gray-400"></span>
+                </label>
+                <select id="role-org-select" name="role_organization_id" data-no-select2
+                    class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                    <option value="">-- Pilih role dulu --</option>
+                </select>
             </div>
 
             <div class="flex items-center justify-end gap-2">
@@ -116,3 +91,59 @@
         </form>
     </div>
 @endsection
+
+@push('scripts')
+<script>
+$(function () {
+    const roleOrgMap   = @json($roleOrgMap);
+    const currentOrgId = @json(old('role_organization_id', $roleOrganizationId) ?? '');
+    const isSelf       = @json($isSelf);
+    const $roleSelect  = $('#role-select');
+    const $orgSelect   = $('#role-org-select');
+    const $hint        = $('#role-org-hint');
+
+    function initOrgSelect2() {
+        if ($orgSelect.hasClass('select2-hidden-accessible')) {
+            $orgSelect.select2('destroy');
+        }
+        const count = $orgSelect.find('option').length;
+        $orgSelect.select2({
+            width: '100%',
+            minimumResultsForSearch: count > 6 ? 0 : Infinity,
+            placeholder: $orgSelect.find('option[value=""]').text() || '',
+            allowClear: false,
+            dropdownParent: $('body'),
+        });
+    }
+
+    function updateOrgSelect(roleId, preselect) {
+        if (isSelf) return;
+
+        const entry = roleOrgMap[roleId];
+        $orgSelect.empty();
+
+        if (!entry || entry.global) {
+            $hint.text('(global — tidak perlu dipilih)');
+            $orgSelect.append('<option value="">-- Global --</option>');
+            $orgSelect.prop('disabled', true).prop('required', false);
+            initOrgSelect2();
+            return;
+        }
+
+        $hint.text('(wajib dipilih)');
+        $orgSelect.append('<option value="">-- Pilih Organisasi --</option>');
+        $.each(entry.orgs, function (_, org) {
+            $orgSelect.append(new Option(org.name, org.id, false, org.id === preselect));
+        });
+        $orgSelect.prop('disabled', false).prop('required', true);
+        initOrgSelect2();
+    }
+
+    $roleSelect.on('change', function () {
+        updateOrgSelect($(this).val(), '');
+    });
+
+    updateOrgSelect($roleSelect.val(), currentOrgId);
+});
+</script>
+@endpush

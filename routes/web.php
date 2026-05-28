@@ -27,9 +27,11 @@ Route::middleware(['auth', 'active'])->group(function () use ($pengajuRoles) {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
+    // Dokumen index — semua role yang sudah login bisa lihat dokumen miliknya/lingkupnya
+    Route::get('/app/documents', [DocumentPageController::class, 'index'])->name('app.documents.index');
+
     // Blade UI routes
     Route::middleware('role:'.$pengajuRoles)->group(function () {
-        Route::get('/app/documents', [DocumentPageController::class, 'index'])->name('app.documents.index');
         Route::get('/app/documents/create', [DocumentPageController::class, 'create'])->name('app.documents.create');
         Route::post('/app/documents', [DocumentPageController::class, 'store'])->name('app.documents.store');
         Route::delete('/app/documents/{id}', [DocumentPageController::class, 'destroy'])->name('app.documents.destroy');

@@ -17,14 +17,24 @@
         <form method="POST" action="{{ route('app.documents.store') }}" enctype="multipart/form-data" class="space-y-4">
             @csrf
 
+            {{-- Admin: pilih pengaju --}}
             @if($isAdmin)
-            <div class="rounded-lg border border-warning-200 bg-warning-50 p-4 dark:border-warning-700/40 dark:bg-warning-500/10">
-                <label class="mb-1 block text-sm font-semibold text-warning-700 dark:text-warning-400">
-                    Dibuat atas nama (Pengaju) <span class="text-red-500">*</span>
-                </label>
-                <p class="mb-2 text-xs text-warning-600 dark:text-warning-400">Pilih user Pengaju yang akan menjadi pemilik dokumen ini.</p>
-                <div class="w-full">
-                    <select name="on_behalf_of" required
+            <div
+                x-data="{
+                    selectedPengaju: '{{ old('on_behalf_of') }}',
+                    orgsByUser: {{ Js::from($allOrgsByUser) }},
+                    selectedOrgId: '{{ old('organization_id') }}',
+                    get orgOptions() { return this.orgsByUser[this.selectedPengaju] ?? []; },
+                    onPengajuChange() { this.selectedOrgId = ''; },
+                }"
+                class="rounded-lg border border-warning-200 bg-warning-50 p-4 space-y-3 dark:border-warning-700/40 dark:bg-warning-500/10"
+            >
+                <div>
+                    <label class="mb-1 block text-sm font-semibold text-warning-700 dark:text-warning-400">
+                        Dibuat atas nama (Pengaju) <span class="text-red-500">*</span>
+                    </label>
+                    <p class="mb-2 text-xs text-warning-600 dark:text-warning-400">Pilih user Pengaju yang akan menjadi pemilik dokumen ini.</p>
+                    <select name="on_behalf_of" x-model="selectedPengaju" @change="onPengajuChange()" required
                         class="h-11 w-full rounded-lg border border-warning-300 bg-white px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-warning-600 dark:bg-gray-900 dark:text-white/90">
                         <option value="">-- Pilih Pengaju --</option>
                         @foreach($pengajuUsers as $pUser)
@@ -34,7 +44,51 @@
                         @endforeach
                     </select>
                 </div>
+
+                <div>
+                    <label class="mb-1 block text-sm font-semibold text-warning-700 dark:text-warning-400">
+                        Organisasi <span class="text-red-500">*</span>
+                    </label>
+                    <input type="hidden" name="organization_id" x-model="selectedOrgId">
+                    <select
+                        x-model="selectedOrgId"
+                        :disabled="!selectedPengaju"
+                        :required="!!selectedPengaju"
+                        class="h-11 w-full rounded-lg border border-warning-300 bg-white px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-warning-600 dark:bg-gray-900 dark:text-white/90 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    >
+                        <option value="" x-text="selectedPengaju ? '-- Pilih Organisasi --' : '-- Pilih pengaju dulu --'"></option>
+                        <template x-for="org in orgOptions" :key="org.id">
+                            <option :value="org.id" x-text="org.name"></option>
+                        </template>
+                    </select>
+                </div>
             </div>
+            @else
+            {{-- Pengaju biasa: organisasi dari user_roles, tidak bisa diubah --}}
+            @if($pengajuOrganizations->count() === 1)
+                <input type="hidden" name="organization_id" value="{{ $pengajuOrganizations->first()->id }}">
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Organisasi</label>
+                    <div class="h-11 flex items-center rounded-lg border border-gray-200 bg-gray-50 px-4 text-sm text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                        {{ $pengajuOrganizations->first()->name }}
+                    </div>
+                </div>
+            @elseif($pengajuOrganizations->count() > 1)
+                <div>
+                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Organisasi <span class="text-red-500">*</span></label>
+                    <select name="organization_id" required
+                        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                        <option value="">-- Pilih Organisasi --</option>
+                        @foreach($pengajuOrganizations as $org)
+                            <option value="{{ $org->id }}" @selected(old('organization_id') === $org->id)>{{ $org->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @else
+                <div class="rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700">
+                    Akun Anda belum dikaitkan ke organisasi manapun. Hubungi administrator.
+                </div>
+            @endif
             @endif
 
             <div>
@@ -67,7 +121,6 @@
             @endphp
 
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-                {{-- Kolom kiri: pilih kategori --}}
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Kategori Dokumen <span class="text-red-500">*</span>
@@ -80,7 +133,6 @@
                     </select>
                 </div>
 
-                {{-- Kolom kanan: diisi JS berdasarkan kategori --}}
                 <div>
                     <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
                         Tipe Dokumen <span class="text-red-500">*</span>
@@ -90,21 +142,6 @@
                         <option value="">-- Pilih kategori dulu --</option>
                     </select>
                 </div>
-            </div>
-
-            {{-- Organisasi --}}
-            <div>
-                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Organisasi <span class="text-red-500">*</span></label>
-                <select name="organization_id"
-                    class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
-                    required>
-                    <option value="">Pilih organisasi</option>
-                    @foreach($organizations as $organization)
-                        <option value="{{ $organization->id }}" @selected(old('organization_id') === $organization->id)>
-                            {{ $organization->name }} ({{ $organization->type->value ?? $organization->type }})
-                        </option>
-                    @endforeach
-                </select>
             </div>
 
             <div>
@@ -159,12 +196,10 @@
             initWorkflowSelect2();
         }
 
-        // Dengarkan perubahan kategori via Select2
         $cat.on('change', function () {
             populateWorkflows($(this).val());
         });
 
-        // Jalankan saat load (repopulate setelah validation error)
         populateWorkflows($cat.val());
     });
 </script>
