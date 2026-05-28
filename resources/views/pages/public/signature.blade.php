@@ -34,12 +34,6 @@
 
         <img src="{{ $signature->signature_value }}" alt="Tanda Tangan" class="sig-img">
 
-        <a href="{{ $signature->signature_value }}"
-            download="ttd-{{ \Illuminate\Support\Str::slug($signature->signer_name) }}.png"
-            style="display:block; width:100%; padding:0.625rem 1rem; background:#25949d; color:#fff; text-align:center; border-radius:0.625rem; font-size:0.875rem; font-weight:600; text-decoration:none; margin-bottom:1.25rem;">
-            Download Tanda Tangan (png)
-        </a>
-
         <div class="info-grid">
             <div class="info-row">
                 <span class="info-label">Penandatangan</span>

@@ -26,7 +26,7 @@ class MenuHelper
                 'icon' => 'upload',
                 'name' => 'Publish Dokumen',
                 'path' => '/app/publish',
-                'roles' => ['PENGAJU', 'ADMIN'],
+                'roles' => ['PENGAJU', 'ADMIN', 'KOMISI_B_BLM'],
             ],
             [
                 'icon' => 'task',

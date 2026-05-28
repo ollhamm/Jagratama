@@ -204,88 +204,130 @@
                 @endif
             @endif
 
+            @php
+                $publishStepPublished = ! is_null($document->published_at);
+                $publishStepInReview  = ! $publishStepPublished && $document->publish_status === 'PENDING_REVIEW';
+                $publishStepRejected  = ! $publishStepPublished && $document->publish_status === 'REJECTED';
+                $publishStepActive    = $currentStatus === 'COMPLETED' && ! $publishStepPublished && ! $publishStepInReview && ! $publishStepRejected;
+
+                $totalSteps     = $workflowSteps->count() + 1;
+                $completedSteps = $publishStepPublished
+                    ? $totalSteps
+                    : ($currentStatus === 'COMPLETED' ? $workflowSteps->count() : max(0, $currentStep - 1));
+            @endphp
+
             <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
                 <div class="mb-4 flex items-center justify-between">
                     <h4 class="text-base font-semibold text-gray-800 dark:text-white/90">Progress Approval</h4>
                     <span class="text-sm text-gray-600 dark:text-gray-300">
-                        @if($currentStatus === 'COMPLETED')
-                            Step {{ $workflowSteps->count() }} dari {{ $workflowSteps->count() }} - <span class="font-semibold text-success-600">Selesai</span>
+                        @if($publishStepPublished)
+                            Step {{ $totalSteps }} dari {{ $totalSteps }} — <span class="font-semibold text-success-600">Selesai</span>
+                        @elseif($currentStatus === 'COMPLETED' && $publishStepInReview)
+                            Step {{ $workflowSteps->count() }} dari {{ $totalSteps }} — <span class="font-semibold text-warning-600">Menunggu Komisi B</span>
+                        @elseif($currentStatus === 'COMPLETED')
+                            Step {{ $workflowSteps->count() }} dari {{ $totalSteps }} — <span class="font-semibold text-brand-600">Menunggu Publish</span>
                         @elseif($currentStatus === 'REJECTED')
-                            Ditolak di Step {{ $currentStep }} dari {{ $workflowSteps->count() }}
+                            Ditolak di Step {{ $currentStep }} dari {{ $totalSteps }}
                         @else
-                            Step {{ $currentStep }} dari {{ $workflowSteps->count() }}
+                            Step {{ $currentStep }} dari {{ $totalSteps }}
                         @endif
                     </span>
                 </div>
 
                 <div class="overflow-x-auto pb-2">
-                <div class="relative" style="min-width: {{ $workflowSteps->count() * 80 }}px">
-                    {{-- Progress Line --}}
+                <div class="relative" style="min-width: {{ $totalSteps * 80 }}px">
                     <div class="absolute left-0 top-5 h-0.5 w-full bg-gray-200 dark:bg-gray-700"></div>
-                    <div
-                        class="absolute left-0 top-5 h-0.5 bg-brand-500 transition-all duration-500"
-                        style="width: {{ $workflowSteps->count() > 0 ? (($currentStatus === 'COMPLETED' ? $workflowSteps->count() : max(0, $currentStep - 1)) / $workflowSteps->count() * 100) : 0 }}%"
-                    ></div>
+                    <div class="absolute left-0 top-5 h-0.5 bg-brand-500 transition-all duration-500"
+                        style="width: {{ $totalSteps > 0 ? ($completedSteps / $totalSteps * 100) : 0 }}%"></div>
 
-                    {{-- Steps --}}
                     <div class="relative flex justify-between">
+                        {{-- Workflow steps --}}
                         @foreach($workflowSteps as $step)
                             @php
                                 $approval = $approvals->get($step->step_order);
                                 $approvalStatus = $approval?->status?->value ?? $approval?->status;
-                                
                                 $isCompleted = in_array($approvalStatus, ['APPROVED', 'SKIPPED'], true);
-                                $isRejected = $approvalStatus === 'REJECTED';
-                                $isCurrent = $step->step_order === $currentStep && !$isCompleted && !$isRejected && $currentStatus !== 'COMPLETED';
-                                $isPending = !$isCompleted && !$isRejected && !$isCurrent;
+                                $isRejected  = $approvalStatus === 'REJECTED';
+                                $isCurrent   = $step->step_order === $currentStep && !$isCompleted && !$isRejected && $currentStatus !== 'COMPLETED';
+                                $isPending   = !$isCompleted && !$isRejected && !$isCurrent;
                             @endphp
-
                             <div class="flex flex-col items-center" style="flex: 1">
-                                {{-- Step Circle --}}
                                 <div class="relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 bg-white transition-all dark:bg-gray-900
                                     {{ $isCompleted ? 'border-success-500 bg-success-50 dark:bg-success-500/20' : '' }}
-                                    {{ $isRejected ? 'border-error-500 bg-error-50 dark:bg-error-500/20' : '' }}
-                                    {{ $isCurrent ? 'border-brand-500 bg-brand-50 shadow-lg shadow-brand-500/30 dark:bg-brand-500/20' : '' }}
-                                    {{ $isPending ? 'border-gray-300 dark:border-gray-700' : '' }}
-                                ">
+                                    {{ $isRejected  ? 'border-error-500 bg-error-50 dark:bg-error-500/20' : '' }}
+                                    {{ $isCurrent   ? 'border-brand-500 bg-brand-50 shadow-lg shadow-brand-500/30 dark:bg-brand-500/20' : '' }}
+                                    {{ $isPending   ? 'border-gray-300 dark:border-gray-700' : '' }}">
                                     @if($isCompleted)
-                                        <svg class="h-5 w-5 text-success-600 dark:text-success-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
-                                        </svg>
+                                        <svg class="h-5 w-5 text-success-600 dark:text-success-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                                     @elseif($isRejected)
-                                        <svg class="h-5 w-5 text-error-600 dark:text-error-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
-                                        </svg>
+                                        <svg class="h-5 w-5 text-error-600 dark:text-error-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                                     @else
-                                        <span class="text-sm font-semibold {{ $isCurrent ? 'text-brand-600 dark:text-brand-400' : 'text-gray-500 dark:text-gray-400' }}">
-                                            {{ $step->step_order }}
-                                        </span>
+                                        <span class="text-sm font-semibold {{ $isCurrent ? 'text-brand-600 dark:text-brand-400' : 'text-gray-500 dark:text-gray-400' }}">{{ $step->step_order }}</span>
                                     @endif
                                 </div>
-
-                                {{-- Step Label --}}
                                 <div class="mt-2 text-center">
                                     <p class="text-xs font-medium {{ $isCurrent ? 'text-brand-600 dark:text-brand-400' : ($isCompleted ? 'text-success-600 dark:text-success-400' : ($isRejected ? 'text-error-600 dark:text-error-400' : 'text-gray-500 dark:text-gray-400')) }}">
                                         {{ $step->role->name ?? $step->role->code ?? 'Step '.$step->step_order }}
                                     </p>
                                     @if($approval)
-                                        <p class="mt-0.5 text-[10px] text-gray-400">
-                                            {{ $approval->approver->name ?? '-' }}
-                                        </p>
+                                        <p class="mt-0.5 text-[10px] text-gray-400">{{ $approval->approver->name ?? '-' }}</p>
                                         @if($approval->approved_at)
-                                            <p class="mt-0.5 text-[10px] text-gray-400">
-                                                {{ $approval->approved_at->format('d/m H:i') }}
-                                            </p>
+                                            <p class="mt-0.5 text-[10px] text-gray-400">{{ $approval->approved_at->format('d/m H:i') }}</p>
                                         @endif
                                         @if($isRejected && $approval->notes)
-                                            <p class="mt-1 max-w-[120px] truncate text-[10px] text-error-500" title="{{ $approval->notes }}">
-                                                {{ $approval->notes }}
-                                            </p>
+                                            <p class="mt-1 max-w-[120px] truncate text-[10px] text-error-500" title="{{ $approval->notes }}">{{ $approval->notes }}</p>
                                         @endif
                                     @endif
                                 </div>
                             </div>
                         @endforeach
+
+                        {{-- Step Publish Dokumen --}}
+                        <div class="flex flex-col items-center" style="flex: 1">
+                            <div class="relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 bg-white transition-all dark:bg-gray-900
+                                {{ $publishStepPublished ? 'border-success-500 bg-success-50 dark:bg-success-500/20' : '' }}
+                                {{ $publishStepRejected  ? 'border-error-500 bg-error-50 dark:bg-error-500/20' : '' }}
+                                {{ $publishStepInReview  ? 'border-warning-500 bg-warning-50 shadow-lg shadow-warning-500/30 dark:bg-warning-500/20' : '' }}
+                                {{ $publishStepActive    ? 'border-brand-500 bg-brand-50 shadow-lg shadow-brand-500/30 dark:bg-brand-500/20' : '' }}
+                                {{ (!$publishStepPublished && !$publishStepRejected && !$publishStepInReview && !$publishStepActive) ? 'border-gray-300 dark:border-gray-700' : '' }}">
+                                @if($publishStepPublished)
+                                    <svg class="h-5 w-5 text-success-600 dark:text-success-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                @elseif($publishStepRejected)
+                                    <svg class="h-5 w-5 text-error-600 dark:text-error-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                @elseif($publishStepInReview)
+                                    <svg class="h-5 w-5 text-warning-600 dark:text-warning-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                @else
+                                    <svg class="h-5 w-5 {{ $publishStepActive ? 'text-brand-500 dark:text-brand-400' : 'text-gray-400 dark:text-gray-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                                @endif
+                            </div>
+                            <div class="mt-2 text-center">
+                                <p class="text-xs font-medium
+                                    {{ $publishStepPublished ? 'text-success-600 dark:text-success-400' : '' }}
+                                    {{ $publishStepRejected  ? 'text-error-600 dark:text-error-400' : '' }}
+                                    {{ $publishStepInReview  ? 'text-warning-600 dark:text-warning-400' : '' }}
+                                    {{ $publishStepActive    ? 'text-brand-600 dark:text-brand-400' : '' }}
+                                    {{ (!$publishStepPublished && !$publishStepRejected && !$publishStepInReview && !$publishStepActive) ? 'text-gray-400 dark:text-gray-600' : '' }}">
+                                    Publish Dokumen
+                                </p>
+                                <p class="mt-0.5 text-[10px]
+                                    {{ $publishStepPublished ? 'text-success-500' : '' }}
+                                    {{ $publishStepRejected  ? 'text-error-500' : '' }}
+                                    {{ $publishStepInReview  ? 'text-warning-500' : '' }}
+                                    {{ (!$publishStepPublished && !$publishStepRejected && !$publishStepInReview) ? 'text-gray-400' : '' }}">
+                                    @if($publishStepPublished)
+                                        {{ optional($document->published_at)->format('d/m H:i') }}
+                                    @elseif($publishStepRejected)
+                                        Ditolak Komisi B
+                                    @elseif($publishStepInReview)
+                                        Review Komisi B
+                                    @elseif($publishStepActive)
+                                        Siap diajukan
+                                    @else
+                                        Menunggu
+                                    @endif
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 </div>
@@ -360,6 +402,7 @@
                                     return [
                                         'signature_value'     => $signature->signature_value,
                                         'role_name'           => $approval->workflowStep->role->name ?? ($approval->workflowStep->role->code ?? '-'),
+                                        'role_code'           => $approval->workflowStep->role->code ?? '',
                                         'approver_name'       => $approval->approver->name ?? '-',
                                         'approver_id'         => $approval->approved_by,
                                         'signed_at'           => optional($signature->signed_at)->format('d/m/Y H:i') ?? '-',
@@ -422,7 +465,7 @@
                                         @endif
                                     </div>
                                     @if($item['public_signature_id'])
-                                        <div class="sig-qr" data-url="{{ route('public.signature.show', $item['public_signature_id']) }}"></div>
+                                        <div class="sig-qr" data-url="{{ route('public.signature.show', $item['public_signature_id']) }}" data-role="{{ $item['role_code'] }}"></div>
                                         <p class="text-[10px] text-gray-400">Scan untuk verifikasi</p>
                                     @endif
                                 </div>
@@ -568,23 +611,51 @@
 @push('scripts')
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
+        const LOGO_QR_ROLES  = ['KA_BAG_AKADEMIK', 'KA_BAG_AKADEMIK_UMUM', 'DIREKTUR'];
+        const KEMENKES_LOGO  = '{{ asset('images/logo/kemenkes-logo.png') }}';
+
+        function overlayLogoOnCanvas(canvas, logoUrl) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = function () {
+                const ctx  = canvas.getContext('2d');
+                const size = Math.floor(canvas.width * 0.20);
+                const x    = Math.floor((canvas.width  - size) / 2);
+                const y    = Math.floor((canvas.height - size) / 2);
+                // White padding so logo doesn't blend with QR modules
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(x - 5, y - 5, size + 10, size + 10);
+                ctx.drawImage(img, x, y, size, size);
+                // Sync the img tag QRCode.js also creates
+                const qrImg = canvas.parentElement ? canvas.parentElement.querySelector('img') : null;
+                if (qrImg) qrImg.src = canvas.toDataURL('image/png');
+            };
+            img.src = logoUrl;
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             document.querySelectorAll('.sig-qr').forEach(function (el) {
-                const url = el.dataset.url;
+                const url      = el.dataset.url;
+                const role     = el.dataset.role || '';
                 if (!url) return;
+                const needsLogo = LOGO_QR_ROLES.includes(role);
                 new QRCode(el, {
                     text: url,
                     width: 300,
                     height: 300,
                     colorDark: '#101828',
                     colorLight: '#ffffff',
-                    correctLevel: QRCode.CorrectLevel.M,
+                    // Gunakan error correction H (30%) untuk role dengan logo agar tetap bisa di-scan
+                    correctLevel: needsLogo ? QRCode.CorrectLevel.H : QRCode.CorrectLevel.M,
                 });
                 // Kecilkan tampilan di kartu tapi biarkan canvas tetap 300px untuk download
                 const canvas = el.querySelector('canvas');
                 const img    = el.querySelector('img');
                 if (canvas) { canvas.style.width = '72px'; canvas.style.height = '72px'; }
                 if (img)    { img.style.width = '72px'; img.style.height = '72px'; }
+                if (needsLogo && canvas) {
+                    overlayLogoOnCanvas(canvas, KEMENKES_LOGO);
+                }
             });
         });
 

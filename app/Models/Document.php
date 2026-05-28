@@ -36,6 +36,8 @@ class Document extends Model
         'public_submitter_signature_id',
         'public_file_path',
         'published_at',
+        'publish_status',
+        'publish_notes',
     ];
 
     protected function casts(): array

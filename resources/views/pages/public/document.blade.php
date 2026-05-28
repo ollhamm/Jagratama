@@ -51,20 +51,43 @@
         </div>
 
         {{-- Tanda tangan --}}
-        @if($approvalSignatures->isNotEmpty())
+        @if($submitterSig || $approvalSignatures->isNotEmpty())
         <div class="rounded-2xl border border-gray-200 bg-white p-6">
             <h2 class="mb-4 text-sm font-semibold text-gray-700">Tanda Tangan Persetujuan</h2>
             <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+
+                {{-- TTD Pengaju --}}
+                @if($submitterSig)
+                    <div class="rounded-xl border border-brand-100 bg-brand-50/30 p-3 text-center">
+                        @if($submitterSig['public_sig_id'])
+                            <div class="pub-sig-qr mx-auto mb-2"
+                                data-url="{{ route('public.signature.show', $submitterSig['public_sig_id']) }}"
+                                style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;">
+                            </div>
+                            <p class="text-[10px] text-gray-400 mb-1">Scan untuk verifikasi</p>
+                        @endif
+                        <p class="text-xs font-semibold text-gray-700">Pengaju</p>
+                        <p class="text-[11px] text-gray-500">{{ $submitterSig['name'] }}</p>
+                    </div>
+                @endif
+
+                {{-- TTD Approval --}}
                 @foreach($approvalSignatures as $item)
                     <div class="rounded-xl border border-gray-200 p-3 text-center">
-                        <img src="{{ $item['signature_value'] }}"
-                            class="mx-auto mb-2 max-h-20 rounded border border-gray-100 bg-white"
-                            alt="Tanda Tangan">
+                        @if($item['public_sig_id'])
+                            <div class="pub-sig-qr mx-auto mb-2"
+                                data-url="{{ route('public.signature.show', $item['public_sig_id']) }}"
+                                data-role="{{ $item['role_code'] }}"
+                                style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;">
+                            </div>
+                            <p class="text-[10px] text-gray-400 mb-1">Scan untuk verifikasi</p>
+                        @endif
                         <p class="text-xs font-semibold text-gray-700">{{ $item['role_name'] }}</p>
                         <p class="text-[11px] text-gray-500">{{ $item['approver_name'] }}</p>
                         <p class="text-[10px] text-gray-400">{{ $item['signed_at'] }}</p>
                     </div>
                 @endforeach
+
             </div>
         </div>
         @endif
@@ -75,5 +98,57 @@
         &copy; {{ date('Y') }} Jagratama — Dokumen ini dapat diverifikasi keasliannya melalui sistem kami.
     </footer>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+    var LOGO_ROLES    = ['KA_BAG_AKADEMIK', 'KA_BAG_AKADEMIK_UMUM', 'DIREKTUR'];
+    var KEMENKES_LOGO = '{{ asset('images/logo/kemenkes-logo.png') }}';
+
+    function overlayLogoOnCanvas(canvas, logoUrl) {
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function () {
+            var ctx  = canvas.getContext('2d');
+            var size = Math.floor(canvas.width * 0.20);
+            var x    = Math.floor((canvas.width  - size) / 2);
+            var y    = Math.floor((canvas.height - size) / 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(x - 5, y - 5, size + 10, size + 10);
+            ctx.drawImage(img, x, y, size, size);
+            // sync img tag yang dibuat QRCode.js
+            var qrImg = canvas.parentElement && canvas.parentElement.querySelector('img');
+            if (qrImg) qrImg.src = canvas.toDataURL('image/png');
+        };
+        img.src = logoUrl;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.pub-sig-qr').forEach(function (el) {
+            var url      = el.dataset.url;
+            var role     = el.dataset.role || '';
+            if (!url) return;
+            var needsLogo = LOGO_ROLES.indexOf(role) !== -1;
+
+            new QRCode(el, {
+                text: url,
+                width: 200,
+                height: 200,
+                colorDark: '#101828',
+                colorLight: '#ffffff',
+                correctLevel: needsLogo ? QRCode.CorrectLevel.H : QRCode.CorrectLevel.M,
+            });
+
+            // Kecilkan tampilan tapi biarkan canvas 200px untuk kualitas logo
+            var canvas = el.querySelector('canvas');
+            var qrImg  = el.querySelector('img');
+            if (canvas) { canvas.style.width = '80px'; canvas.style.height = '80px'; }
+            if (qrImg)  { qrImg.style.width  = '80px'; qrImg.style.height  = '80px'; }
+
+            if (needsLogo && canvas) {
+                // setTimeout memastikan QRCode.js selesai render sebelum overlay
+                setTimeout(function () { overlayLogoOnCanvas(canvas, KEMENKES_LOGO); }, 0);
+            }
+        });
+    });
+</script>
 </body>
 </html>

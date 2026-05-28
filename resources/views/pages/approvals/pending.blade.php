@@ -105,28 +105,46 @@
                     </div>
                 </div>
 
-                {{-- Step Progress (sama persis seperti show.blade.php) --}}
+                {{-- Step Progress --}}
                 @if($workflowSteps->isNotEmpty())
+                    @php
+                        $publishStepPublished = ! is_null($doc->published_at);
+                        $publishStepInReview  = ! $publishStepPublished && $doc->publish_status === 'PENDING_REVIEW';
+                        $publishStepRejected  = ! $publishStepPublished && $doc->publish_status === 'REJECTED';
+                        $publishStepActive    = $currentStatus === 'COMPLETED' && ! $publishStepPublished && ! $publishStepInReview && ! $publishStepRejected;
+
+                        $totalSteps     = $workflowSteps->count() + 1;
+                        $completedSteps = $publishStepPublished
+                            ? $totalSteps
+                            : ($currentStatus === 'COMPLETED' ? $workflowSteps->count() : max(0, $currentStep - 1));
+                    @endphp
+
                     <div class="mt-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
                         <div class="mb-4 flex items-center justify-between">
                             <h4 class="text-base font-semibold text-gray-800 dark:text-white/90">Progress Approval</h4>
                             <span class="text-sm text-gray-600 dark:text-gray-300">
-                                @if($currentStatus === 'COMPLETED')
-                                    Step {{ $workflowSteps->count() }} dari {{ $workflowSteps->count() }} — <span class="font-semibold text-success-600">Selesai</span>
+                                @if($publishStepPublished)
+                                    Step {{ $totalSteps }} dari {{ $totalSteps }} — <span class="font-semibold text-success-600">Selesai</span>
+                                @elseif($currentStatus === 'COMPLETED' && $publishStepInReview)
+                                    Step {{ $workflowSteps->count() }} dari {{ $totalSteps }} — <span class="font-semibold text-warning-600">Menunggu Komisi B</span>
+                                @elseif($currentStatus === 'COMPLETED')
+                                    Step {{ $workflowSteps->count() }} dari {{ $totalSteps }} — <span class="font-semibold text-brand-600">Menunggu Publish</span>
+                                @elseif($currentStatus === 'REJECTED')
+                                    Ditolak di Step {{ $currentStep }} dari {{ $totalSteps }}
                                 @else
-                                    Step {{ $currentStep }} dari {{ $workflowSteps->count() }}
+                                    Step {{ $currentStep }} dari {{ $totalSteps }}
                                 @endif
                             </span>
                         </div>
 
                         <div class="overflow-x-auto pb-2">
-                        <div class="relative" style="min-width: {{ $workflowSteps->count() * 80 }}px">
+                        <div class="relative" style="min-width: {{ $totalSteps * 80 }}px">
                             <div class="absolute left-0 top-5 h-0.5 w-full bg-gray-200 dark:bg-gray-700"></div>
                             <div class="absolute left-0 top-5 h-0.5 bg-brand-500 transition-all duration-500"
-                                style="width: {{ $workflowSteps->count() > 0 ? (($currentStatus === 'COMPLETED' ? $workflowSteps->count() : max(0, $currentStep - 1)) / $workflowSteps->count() * 100) : 0 }}%">
-                            </div>
+                                style="width: {{ $totalSteps > 0 ? ($completedSteps / $totalSteps * 100) : 0 }}%"></div>
 
                             <div class="relative flex justify-between">
+                                {{-- Workflow steps --}}
                                 @foreach($workflowSteps as $step)
                                     @php
                                         $approval       = $approvals->get($step->step_order);
@@ -143,17 +161,11 @@
                                             {{ $isCurrent   ? 'border-brand-500 bg-brand-50 shadow-lg shadow-brand-500/30 dark:bg-brand-500/20' : '' }}
                                             {{ $isPending   ? 'border-gray-300 dark:border-gray-700' : '' }}">
                                             @if($isCompleted)
-                                                <svg class="h-5 w-5 text-success-600 dark:text-success-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                                                </svg>
+                                                <svg class="h-5 w-5 text-success-600 dark:text-success-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                                             @elseif($isRejected)
-                                                <svg class="h-5 w-5 text-error-600 dark:text-error-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                                </svg>
+                                                <svg class="h-5 w-5 text-error-600 dark:text-error-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                                             @else
-                                                <span class="text-sm font-semibold {{ $isCurrent ? 'text-brand-600 dark:text-brand-400' : 'text-gray-500 dark:text-gray-400' }}">
-                                                    {{ $step->step_order }}
-                                                </span>
+                                                <span class="text-sm font-semibold {{ $isCurrent ? 'text-brand-600 dark:text-brand-400' : 'text-gray-500 dark:text-gray-400' }}">{{ $step->step_order }}</span>
                                             @endif
                                         </div>
                                         <div class="mt-2 text-center">
@@ -166,6 +178,53 @@
                                         </div>
                                     </div>
                                 @endforeach
+
+                                {{-- Step Publish Dokumen --}}
+                                <div class="flex flex-col items-center" style="flex:1">
+                                    <div class="relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 bg-white transition-all dark:bg-gray-900
+                                        {{ $publishStepPublished ? 'border-success-500 bg-success-50 dark:bg-success-500/20' : '' }}
+                                        {{ $publishStepRejected  ? 'border-error-500 bg-error-50 dark:bg-error-500/20' : '' }}
+                                        {{ $publishStepInReview  ? 'border-warning-500 bg-warning-50 shadow-lg shadow-warning-500/30 dark:bg-warning-500/20' : '' }}
+                                        {{ $publishStepActive    ? 'border-brand-500 bg-brand-50 shadow-lg shadow-brand-500/30 dark:bg-brand-500/20' : '' }}
+                                        {{ (!$publishStepPublished && !$publishStepRejected && !$publishStepInReview && !$publishStepActive) ? 'border-gray-300 dark:border-gray-700' : '' }}">
+                                        @if($publishStepPublished)
+                                            <svg class="h-5 w-5 text-success-600 dark:text-success-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                                        @elseif($publishStepRejected)
+                                            <svg class="h-5 w-5 text-error-600 dark:text-error-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                                        @elseif($publishStepInReview)
+                                            <svg class="h-5 w-5 text-warning-600 dark:text-warning-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                        @else
+                                            <svg class="h-5 w-5 {{ $publishStepActive ? 'text-brand-500 dark:text-brand-400' : 'text-gray-400 dark:text-gray-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                                        @endif
+                                    </div>
+                                    <div class="mt-2 text-center">
+                                        <p class="text-xs font-medium
+                                            {{ $publishStepPublished ? 'text-success-600 dark:text-success-400' : '' }}
+                                            {{ $publishStepRejected  ? 'text-error-600 dark:text-error-400' : '' }}
+                                            {{ $publishStepInReview  ? 'text-warning-600 dark:text-warning-400' : '' }}
+                                            {{ $publishStepActive    ? 'text-brand-600 dark:text-brand-400' : '' }}
+                                            {{ (!$publishStepPublished && !$publishStepRejected && !$publishStepInReview && !$publishStepActive) ? 'text-gray-400 dark:text-gray-600' : '' }}">
+                                            Publish Dokumen
+                                        </p>
+                                        <p class="mt-0.5 text-[10px]
+                                            {{ $publishStepPublished ? 'text-success-500' : '' }}
+                                            {{ $publishStepRejected  ? 'text-error-500' : '' }}
+                                            {{ $publishStepInReview  ? 'text-warning-500' : '' }}
+                                            {{ (!$publishStepPublished && !$publishStepRejected && !$publishStepInReview) ? 'text-gray-400' : '' }}">
+                                            @if($publishStepPublished)
+                                                {{ optional($doc->published_at)->format('d/m H:i') }}
+                                            @elseif($publishStepRejected)
+                                                Ditolak Komisi B
+                                            @elseif($publishStepInReview)
+                                                Review Komisi B
+                                            @elseif($publishStepActive)
+                                                Siap diajukan
+                                            @else
+                                                Menunggu
+                                            @endif
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         </div>

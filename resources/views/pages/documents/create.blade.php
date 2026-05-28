@@ -42,26 +42,69 @@
                 <input name="title" value="{{ old('title') }}" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90" required />
             </div>
 
+            @php
+                $kakLpjCodes   = ['KAK', 'LPJ'];
+                $docTypeMap    = $documentTypes->keyBy('id');
+                $oldWorkflowId = old('workflow_id');
+
+                $workflowGroups = ['KAK_LPJ' => [], 'SURAT' => []];
+                foreach ($workflows as $wf) {
+                    $code = strtoupper($docTypeMap->get($wf->document_type_id)?->code ?? '');
+                    $cat  = in_array($code, $kakLpjCodes) ? 'KAK_LPJ' : ($code === 'SURAT' ? 'SURAT' : null);
+                    if ($cat) {
+                        $workflowGroups[$cat][] = ['id' => $wf->id, 'name' => $wf->name];
+                    }
+                }
+
+                $oldCategory = '';
+                if ($oldWorkflowId) {
+                    foreach ($workflowGroups as $cat => $items) {
+                        foreach ($items as $item) {
+                            if ($item['id'] === $oldWorkflowId) { $oldCategory = $cat; break 2; }
+                        }
+                    }
+                }
+            @endphp
+
             <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+                {{-- Kolom kiri: pilih kategori --}}
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Tipe Surat <span class="text-red-500">*</span></label>
-                    <select name="workflow_id" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90" required>
-                        <option value="">Pilih tipe</option>
-                        @foreach($workflows as $workflow)
-                            <option value="{{ $workflow->id }}" @selected(old('workflow_id') === $workflow->id)>{{ $workflow->name }}</option>
-                        @endforeach
+                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Kategori Dokumen <span class="text-red-500">*</span>
+                    </label>
+                    <select id="category-select"
+                        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                        <option value="">-- Pilih kategori --</option>
+                        <option value="KAK_LPJ" @selected($oldCategory === 'KAK_LPJ')>KAK / LPJ</option>
+                        <option value="SURAT"   @selected($oldCategory === 'SURAT')>Persuratan (Surat)</option>
                     </select>
                 </div>
 
+                {{-- Kolom kanan: diisi JS berdasarkan kategori --}}
                 <div>
-                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Organisasi</label>
-                    <select name="organization_id" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90" required>
-                        <option value="">Pilih organisasi</option>
-                        @foreach($organizations as $organization)
-                            <option value="{{ $organization->id }}" @selected(old('organization_id') === $organization->id)>{{ $organization->name }} ({{ $organization->type->value ?? $organization->type }})</option>
-                        @endforeach
+                    <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                        Tipe Dokumen <span class="text-red-500">*</span>
+                    </label>
+                    <select id="workflow-select" name="workflow_id" required data-no-select2
+                        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                        <option value="">-- Pilih kategori dulu --</option>
                     </select>
                 </div>
+            </div>
+
+            {{-- Organisasi --}}
+            <div>
+                <label class="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">Organisasi <span class="text-red-500">*</span></label>
+                <select name="organization_id"
+                    class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
+                    required>
+                    <option value="">Pilih organisasi</option>
+                    @foreach($organizations as $organization)
+                        <option value="{{ $organization->id }}" @selected(old('organization_id') === $organization->id)>
+                            {{ $organization->name }} ({{ $organization->type->value ?? $organization->type }})
+                        </option>
+                    @endforeach
+                </select>
             </div>
 
             <div>
@@ -76,3 +119,53 @@
         </form>
     </div>
 @endsection
+
+@push('scripts')
+<script>
+    $(function () {
+        const workflowData  = @json($workflowGroups);
+        const oldWorkflowId = @json($oldWorkflowId ?? '');
+
+        const $cat      = $('#category-select');
+        const $workflow = $('#workflow-select');
+
+        function initWorkflowSelect2() {
+            if ($workflow.hasClass('select2-hidden-accessible')) {
+                $workflow.select2('destroy');
+            }
+            const count = $workflow.find('option').length;
+            $workflow.select2({
+                width: '100%',
+                minimumResultsForSearch: count > 6 ? 0 : Infinity,
+                placeholder: $workflow.find('option[value=""]').text() || '',
+                allowClear: false,
+                dropdownParent: $('body'),
+            });
+        }
+
+        function populateWorkflows(category) {
+            $workflow.empty();
+
+            const placeholderText = category ? '-- Pilih tipe surat --' : '-- Pilih kategori dulu --';
+            $workflow.append(new Option(placeholderText, '', true, true));
+
+            if (category && workflowData[category]) {
+                workflowData[category].forEach(function (wf) {
+                    const selected = wf.id === oldWorkflowId;
+                    $workflow.append(new Option(wf.name, wf.id, selected, selected));
+                });
+            }
+
+            initWorkflowSelect2();
+        }
+
+        // Dengarkan perubahan kategori via Select2
+        $cat.on('change', function () {
+            populateWorkflows($(this).val());
+        });
+
+        // Jalankan saat load (repopulate setelah validation error)
+        populateWorkflows($cat.val());
+    });
+</script>
+@endpush

@@ -29,9 +29,6 @@ Route::middleware(['auth', 'active'])->group(function () use ($pengajuRoles) {
 
     // Blade UI routes
     Route::middleware('role:'.$pengajuRoles)->group(function () {
-        Route::get('/app/publish', [PublishPageController::class, 'index'])->name('app.publish.index');
-        Route::post('/app/publish/{id}', [PublishPageController::class, 'publish'])->name('app.publish.publish');
-
         Route::get('/app/documents', [DocumentPageController::class, 'index'])->name('app.documents.index');
         Route::get('/app/documents/create', [DocumentPageController::class, 'create'])->name('app.documents.create');
         Route::post('/app/documents', [DocumentPageController::class, 'store'])->name('app.documents.store');
@@ -39,6 +36,20 @@ Route::middleware(['auth', 'active'])->group(function () use ($pengajuRoles) {
         Route::post('/app/documents/{id}/submit', [DocumentPageController::class, 'submit'])->name('app.documents.submit');
         Route::get('/app/documents/{id}/resubmit', [DocumentPageController::class, 'resubmitForm'])->name('app.documents.resubmit.form');
         Route::post('/app/documents/{id}/resubmit', [DocumentPageController::class, 'resubmit'])->name('app.documents.resubmit');
+
+        Route::post('/app/publish/{id}', [PublishPageController::class, 'publish'])->name('app.publish.publish');
+    });
+
+    // Publish index & review — Pengaju, Komisi B, dan Admin
+    Route::middleware('role:PENGAJU,ADMIN,KOMISI_B_BLM')->group(function () {
+        Route::get('/app/publish', [PublishPageController::class, 'index'])->name('app.publish.index');
+        Route::get('/app/publish/{id}/pdf', [PublishPageController::class, 'previewPdf'])->name('app.publish.preview-pdf');
+    });
+
+    // Approve/reject — Komisi B dan Admin saja
+    Route::middleware('role:KOMISI_B_BLM,ADMIN')->group(function () {
+        Route::post('/app/publish/{id}/approve', [PublishPageController::class, 'approve'])->name('app.publish.approve');
+        Route::post('/app/publish/{id}/reject', [PublishPageController::class, 'reject'])->name('app.publish.reject');
     });
 
     Route::get('/app/documents/{id}', [DocumentPageController::class, 'show'])->name('app.documents.show');

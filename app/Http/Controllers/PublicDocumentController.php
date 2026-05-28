@@ -20,6 +20,7 @@ class PublicDocumentController extends Controller
                 'approvals.signatures',
             ])
             ->whereNotNull('public_file_path')
+            ->whereNotNull('published_at')
             ->findOrFail($id);
 
         $approvalSignatures = $document->approvals
@@ -27,16 +28,25 @@ class PublicDocumentController extends Controller
             ->filter(fn ($a) => $a->signatures->isNotEmpty())
             ->flatMap(function ($approval) {
                 return $approval->signatures->map(fn ($sig) => [
-                    'role_name'       => $approval->workflowStep->role->name ?? '-',
-                    'approver_name'   => $approval->approver->name ?? '-',
-                    'signed_at'       => optional($sig->signed_at)->format('d/m/Y H:i'),
-                    'signature_value' => $sig->signature_value,
+                    'role_name'     => $approval->workflowStep->role->name ?? '-',
+                    'role_code'     => $approval->workflowStep->role->code ?? '',
+                    'approver_name' => $approval->approver->name ?? '-',
+                    'signed_at'     => optional($sig->signed_at)->format('d/m/Y H:i'),
+                    'public_sig_id' => $sig->public_signature_id,
                 ]);
             });
 
+        $submitterSig = $document->public_submitter_signature_id
+            ? [
+                'name'          => $document->creator->name ?? '-',
+                'public_sig_id' => $document->public_submitter_signature_id,
+            ]
+            : null;
+
         return view('pages.public.document', [
-            'document'          => $document,
+            'document'           => $document,
             'approvalSignatures' => $approvalSignatures,
+            'submitterSig'       => $submitterSig,
         ]);
     }
 
@@ -44,6 +54,7 @@ class PublicDocumentController extends Controller
     {
         $document = Document::query()
             ->whereNotNull('public_file_path')
+            ->whereNotNull('published_at')
             ->findOrFail($id);
 
         $path = Storage::path($document->public_file_path);
