@@ -248,8 +248,8 @@ class DocumentPageController extends Controller
 
         $rejectedApproval = $document->approvals
             ->where('status', \App\Enums\ApprovalStatus::REJECTED)
-            ->sortByDesc('step_order')
-            ->first();
+            ->sortBy('created_at')
+            ->last();
 
         return view('pages.documents.resubmit', [
             'title'           => 'Edit & Submit Ulang',
@@ -267,7 +267,7 @@ class DocumentPageController extends Controller
         }
 
         $request->validate([
-            'attachment' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'attachment' => ['required', 'file', 'mimes:pdf', 'max:5120'],
         ]);
 
         try {

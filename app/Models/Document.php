@@ -79,6 +79,9 @@ class Document extends Model
 
     public function approvals()
     {
-        return $this->hasMany(DocumentApproval::class);
+        // Urutkan kronologis agar entri terbaru "menang" saat di-keyBy(step_order)
+        // — penting karena satu step_order bisa punya beberapa baris riwayat
+        // (reject lama + pending baru) setelah siklus resubmit.
+        return $this->hasMany(DocumentApproval::class)->orderBy('created_at');
     }
 }

@@ -23,10 +23,41 @@
             $workflowSteps = $latestInstance?->workflow?->steps?->sortBy('step_order') ?? collect();
             $approvals = $document->approvals->keyBy('step_order');
             $currentStep = $document->current_step_order;
+            // Riwayat semua reject sepanjang siklus dokumen ini (bisa lebih dari satu, termasuk di step yang sama)
+            $rejectHistory = $document->approvals
+                ->filter(fn ($a) => ($a->status->value ?? $a->status) === 'REJECTED')
+                ->sortBy('created_at')
+                ->values();
             $primaryAttachment = $document->attachments->first();
             $primaryAttachmentUrl = $primaryAttachment ? route('app.documents.attachments.preview', ['id' => $document->id, 'attachmentId' => $primaryAttachment->id]) : null;
             $primaryPdfUrl = $primaryAttachment ? route('app.documents.attachments.pdf', ['id' => $document->id, 'attachmentId' => $primaryAttachment->id]) : null;
         @endphp
+
+        {{-- Riwayat Revisi: semua catatan reject sepanjang siklus dokumen ini --}}
+        @if($rejectHistory->isNotEmpty())
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+                <h4 class="mb-3 text-base font-semibold text-gray-800 dark:text-white/90">Riwayat Revisi</h4>
+                <div class="space-y-3">
+                    @foreach($rejectHistory as $i => $rejected)
+                        <div class="rounded-lg border border-error-200 bg-error-50 p-3 dark:border-error-800 dark:bg-error-500/10">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-xs font-semibold text-error-700 dark:text-error-400">
+                                    Revisi #{{ $i + 1 }} — Step {{ $rejected->step_order }} ({{ $rejected->workflowStep->role->name ?? $rejected->workflowStep->role->code ?? '-' }})
+                                </span>
+                                <span class="text-xs text-gray-500 dark:text-gray-400">
+                                    Ditolak oleh {{ $rejected->approver->name ?? '-' }} pada {{ $rejected->approved_at?->format('d/m/Y H:i') ?? '-' }}
+                                </span>
+                            </div>
+                            @if($rejected->notes)
+                                <p class="mt-2 rounded-lg bg-white px-3 py-2 text-sm text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                    <span class="font-medium">Alasan:</span> {{ $rejected->notes }}
+                                </p>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
 
         @if($currentStatus === 'DRAFT')
             <div class="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03] sm:p-5">
@@ -178,7 +209,7 @@
         @if($currentStatus !== 'DRAFT' && $workflowSteps->isNotEmpty())
             @if($currentStatus === 'REJECTED')
                 @php
-                    $rejectedApproval = $approvals->first(fn($a) => ($a->status->value ?? $a->status) === 'REJECTED');
+                    $rejectedApproval = $rejectHistory->last();
                 @endphp
                 @if($rejectedApproval)
                     <div class="rounded-2xl border border-error-200 bg-error-50 p-4 dark:border-error-800 dark:bg-error-500/10">
@@ -337,10 +368,7 @@
         {{-- Form Submit Ulang: muncul saat REJECTED dan user adalah pengaju --}}
         @if($currentStatus === 'REJECTED' && $document->created_by === auth()->id())
             @php
-                $rejectedApproval = $document->approvals
-                    ->where('status', \App\Enums\ApprovalStatus::REJECTED)
-                    ->sortByDesc('step_order')
-                    ->first();
+                $rejectedApproval = $rejectHistory->last();
             @endphp
             <div class="rounded-2xl border border-error-200 bg-error-50 p-5 dark:border-error-800 dark:bg-error-500/10 sm:p-6">
                 <div class="flex items-start gap-3">
@@ -393,86 +421,47 @@
 
 
                 <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-800 md:col-span-2">
-                    <p class="text-xs uppercase text-gray-500">Tanda Tangan Approval</p>
+                    <p class="text-xs uppercase text-gray-500">Riwayat Catatan</p>
                     @php
-                        $approvalSignatures = $document->approvals
-                            ->sortBy('step_order')
-                            ->flatMap(function ($approval) {
-                                return $approval->signatures->map(function ($signature) use ($approval) {
-                                    return [
-                                        'signature_value'     => $signature->signature_value,
-                                        'role_name'           => $approval->workflowStep->role->name ?? ($approval->workflowStep->role->code ?? '-'),
-                                        'role_code'           => $approval->workflowStep->role->code ?? '',
-                                        'approver_name'       => $approval->approver->name ?? '-',
-                                        'approver_id'         => $approval->approved_by,
-                                        'signed_at'           => optional($signature->signed_at)->format('d/m/Y H:i') ?? '-',
-                                        'public_signature_id' => $signature->public_signature_id,
-                                    ];
-                                });
-                            });
-                        $authId       = auth()->id();
-                        $userRoleIds  = auth()->user()->userRoles()->pluck('role_id')->all();
-                        // Semua peserta flow: pengaju + siapapun yang punya role di approval list dokumen ini
-                        $flowRoleIds  = $document->approvals->pluck('role_id')->all();
-                        $canDownloadAll = $document->created_by === $authId
-                            || $document->approvals->contains('approved_by', $authId)
-                            || count(array_intersect($userRoleIds, $flowRoleIds)) > 0;
+                        $approvalLog = $document->approvals->sortBy(fn ($a) => [$a->step_order, $a->created_at])->values();
                     @endphp
 
-                    @if($document->submitter_signature || $approvalSignatures->isNotEmpty())
-                        <div class="mt-2 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-                            @if($document->submitter_signature)
-                                <div class="rounded-lg border border-brand-200 p-3 dark:border-brand-700/40 flex flex-col items-center gap-2">
-                                    <div class="flex w-full items-start justify-between gap-2">
-                                        <div>
-                                            <p class="text-xs font-semibold text-gray-700 dark:text-gray-200">Pengaju</p>
-                                            <p class="mt-0.5 text-[11px] text-gray-500">{{ $document->creator->name ?? '-' }}</p>
+                    @if($approvalLog->isNotEmpty())
+                        <div class="mt-2 space-y-2">
+                            @foreach($approvalLog as $log)
+                                @php
+                                    $logStatus = $log->status->value ?? $log->status;
+                                    $badgeClass = match ($logStatus) {
+                                        'APPROVED' => 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400',
+                                        'REJECTED' => 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-400',
+                                        default    => 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
+                                    };
+                                @endphp
+                                <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                                    <div class="flex flex-wrap items-center justify-between gap-2">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                                Step {{ $log->step_order }} — {{ $log->workflowStep->role->name ?? $log->workflowStep->role->code ?? '-' }}
+                                            </span>
+                                            <span class="rounded px-2 py-0.5 text-[10px] font-semibold {{ $badgeClass }}">{{ $logStatus }}</span>
                                         </div>
-                                        @if($canDownloadAll && $document->public_submitter_signature_id)
-                                            <button type="button"
-                                                onclick="downloadSigQr(this, 'qr-pengaju-{{ \Illuminate\Support\Str::slug($document->creator->name ?? 'pengaju') }}.png')"
-                                                title="Download QR Code"
-                                                class="shrink-0 rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50 hover:text-brand-600 dark:border-gray-700 dark:hover:bg-gray-800">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                                                </svg>
-                                            </button>
-                                        @endif
+                                        <span class="text-[11px] text-gray-500 dark:text-gray-400">
+                                            {{ $log->approver->name ?? '-' }}
+                                            @if($log->approved_at)
+                                                · {{ $log->approved_at->format('d/m/Y H:i') }}
+                                            @endif
+                                        </span>
                                     </div>
-                                    @if($document->public_submitter_signature_id)
-                                        <div class="sig-qr" data-url="{{ route('public.signature.show', $document->public_submitter_signature_id) }}"></div>
-                                        <p class="text-[10px] text-gray-400">Scan untuk verifikasi</p>
-                                    @endif
-                                </div>
-                            @endif
-                            @foreach($approvalSignatures as $item)
-                                <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700 flex flex-col items-center gap-2">
-                                    <div class="flex w-full items-start justify-between gap-2">
-                                        <div>
-                                            <p class="text-xs font-semibold text-gray-700 dark:text-gray-200">{{ $item['role_name'] }}</p>
-                                            <p class="mt-0.5 text-[11px] text-gray-500">{{ $item['approver_name'] }}</p>
-                                            <p class="text-[10px] text-gray-400">{{ $item['signed_at'] }}</p>
-                                        </div>
-                                        @if($canDownloadAll && $item['public_signature_id'])
-                                            <button type="button"
-                                                onclick="downloadSigQr(this, 'qr-{{ \Illuminate\Support\Str::slug($item['role_name']) }}.png')"
-                                                title="Download QR Code"
-                                                class="shrink-0 rounded-lg border border-gray-200 p-1.5 text-gray-500 hover:bg-gray-50 hover:text-brand-600 dark:border-gray-700 dark:hover:bg-gray-800">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                                                </svg>
-                                            </button>
-                                        @endif
-                                    </div>
-                                    @if($item['public_signature_id'])
-                                        <div class="sig-qr" data-url="{{ route('public.signature.show', $item['public_signature_id']) }}" data-role="{{ $item['role_code'] }}"></div>
-                                        <p class="text-[10px] text-gray-400">Scan untuk verifikasi</p>
+                                    @if($log->notes)
+                                        <p class="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                            <span class="font-medium">Catatan:</span> {{ $log->notes }}
+                                        </p>
                                     @endif
                                 </div>
                             @endforeach
                         </div>
                     @else
-                        <p class="mt-1 text-sm text-gray-500">Belum ada tanda tangan.</p>
+                        <p class="mt-1 text-sm text-gray-500">Belum ada riwayat approval.</p>
                     @endif
                 </div>
             </div>

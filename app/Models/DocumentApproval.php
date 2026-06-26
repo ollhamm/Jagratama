@@ -17,7 +17,9 @@ class DocumentApproval extends Model
 
     protected $keyType = 'string';
 
-    public $timestamps = false;
+    public $timestamps = true;
+
+    public const UPDATED_AT = null;
 
     protected $fillable = [
         'document_id',
@@ -36,6 +38,7 @@ class DocumentApproval extends Model
             'status' => ApprovalStatus::class,
             'step_order' => 'integer',
             'approved_at' => 'datetime',
+            'created_at' => 'datetime',
         ];
     }
 

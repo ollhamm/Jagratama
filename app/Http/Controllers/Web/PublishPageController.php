@@ -103,7 +103,7 @@ class PublishPageController extends Controller
     public function publish(Request $request, string $id): RedirectResponse
     {
         $request->validate([
-            'attachment' => ['required', 'file', 'mimes:pdf', 'max:20480'],
+            'attachment' => ['required', 'file', 'mimes:pdf', 'max:5120'],
         ]);
 
         $document = Document::query()

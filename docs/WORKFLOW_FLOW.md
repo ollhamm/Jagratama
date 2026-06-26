@@ -1,123 +1,151 @@
 # Dokumentasi Alur Persetujuan (Approval Flow)
 
-Dokumen ini merangkum alur persetujuan berdasarkan dua jenis dokumen dan enam tipe organisasi,
-beserta **catatan ketidaksesuaian** antara diagram flowchart dan implementasi kode (`WorkflowSeeder.php`).
+Dokumen ini adalah **referensi validasi** alur approval, disusun dari pembacaan langsung `FLOWCHART REVISI.pdf` (versi terbaru), dibandingkan baris-per-baris dengan implementasi kode di `database/seeders/WorkflowSeeder.php`.
+
+Setiap org type dibaca sebagai kolom independen dari "Mulai" sampai "Selesai" — tidak mengasumsikan kesejajaran baris antar kolom, karena panjang alur tiap tipe organisasi berbeda-beda.
 
 ---
 
 ## 1. KAK / LPJ Flow
 
-> Nama workflow: `ALUR TOR, KAK/LPJ/PROPOSAL SPONSORSHIP`
+> Nama workflow di kode: `ALUR TOR, KAK/LPJ/PROPOSAL SPONSORSHIP`
 
-### Alur berdasarkan Tipe Organisasi (dari Diagram)
+### Per Tipe Organisasi (dari flowchart)
 
-| Step | SBH | UKM | HMPS (Ormawa Prodi) | HMJ (Ormawa Jurusan) | BEM | BLM |
-|------|-----|-----|---------------------|----------------------|-----|-----|
-| 1 | Pengaju | Pengaju | Pengaju | Pengaju | Pengaju | Pengaju |
-| 2 | Ketua SBH | Ketua UKM | Ketua HMPS | Ketua HMJ | Presiden BEM | Ketua BLM |
-| 3 | Pembina SBH | Pembina UKM | PJ Mahasiswa & Alumni Jurusan | PJ Mahasiswa & Alumni Jurusan | Komisi B BLM | PJ Mhs & Alumni |
-| 4 | Presiden BEM | Menteri Minbat BEM | Kaprodi | Kajur | PJ Mhs & Alumni | Ka Sub Bag ADM Akademik |
-| 5 | Komisi B BLM | Komisi B BLM | Kajur | Presiden BEM | Ka Sub Bag ADM Akademik | Ka Bag ADM Akademik Umum |
-| 6 | PJ Mhs & Alumni | PJ Mhs & Alumni | Presiden BEM | Komisi B BLM | Ka Bag ADM Akademik Umum | **Wadir III** |
-| 7 | Ka Sub Bag ADM Akademik | Ka Sub Bag ADM Akademik | Komisi B BLM | PJ Mhs & Alumni | **Wadir III** | Direktur |
-| 8 | Ka Bag ADM Akademik Umum | Ka Bag ADM Akademik Umum | PJ Mhs & Alumni | Ka Sub Bag ADM Akademik | Direktur | SELESAI |
-| 9 | **Wadir III** | **Wadir III** | Ka Sub Bag ADM Akademik | Ka Bag ADM Akademik Umum | SELESAI | |
-| 10 | Direktur | Direktur | Ka Bag ADM Akademik Umum | **Wadir III** | | |
-| 11 | SELESAI | SELESAI | **Wadir III** | Direktur | | |
-| 12 | | | Direktur | SELESAI | | |
-| 13 | | | SELESAI | | | |
+| Tipe Org | Urutan Approval (flowchart) |
+|---|---|
+| **SBH** | Pengaju → Ketua SBH → Pembina SBH → Presiden BEM → Komisi B BLM → Penanggung Jawab Mahasiswa dan Alumni → Ka Sub Bag Adm Akademik → Ka Bag Adm Akademik Umum → **Wadir II** → Direktur → Selesai |
+| **UKM** | Pengaju → Ketua UKM → Pembina UKM → **Menteri Minbak BEM** → Komisi B BLM → Penanggung Jawab Mahasiswa dan Alumni → Ka Sub Bag Adm Akademik → Ka Bag Adm Akademik Umum → Wadir III → Direktur → Selesai |
+| **HMPS (Ormawa Prodi)** | Pengaju → Ketua HMPS → **[PJ Mahasiswa, dan Alumni Jurusan/Prodi/Kajur]** *(kotak gabungan)* → Presiden BEM → Komisi B BLM → Penanggung Jawab Mahasiswa dan Alumni → Ka Sub Bag Adm Akademik → Ka Bag Adm Akademik Umum → Wadir III → Direktur → Selesai |
+| **HMJ (Ormawa Jurusan)** | Pengaju → Ketua HMJ → **[PJ Mahasiswa dan Alumni Jurusan/Kajur]** *(kotak gabungan)* → Presiden BEM → Komisi B BLM → Penanggung Jawab Mahasiswa dan Alumni → Ka Sub Bag Adm Akademik → **Ka Bag Adm Akademik** *(tanpa "Umum")* → Wadir III → Direktur → Selesai |
+| **BEM** | Pengaju → Presiden BEM → Komisi B BLM → Penanggung Jawab Mahasiswa dan Alumni → Ka Sub Bag Adm Akademik → Ka Bag Adm Akademik Umum → Wadir III → Direktur → Selesai |
+| **BLM** | Pengaju → Ketua BLM → **[Komisi B BLM]** *(kuning)* → Penanggung Jawab Mahasiswa dan Alumni → Ka Sub Bag Adm Akademik → Ka Bag Adm Akademik Umum → Wadir III → Direktur → Selesai |
 
-### Yang Wajib Tanda Tangan (KAK/LPJ) — dari Legenda Diagram
+**Catatan penting per kolom:**
+- **UKM tidak memiliki step Presiden BEM** pada KAK/LPJ — hanya Menteri Minbak BEM lalu langsung ke Komisi B BLM. (Berbeda dengan Persuratan, lihat bagian 2.)
+- **HMJ memakai "Ka Bag Adm Akademik" tanpa kata "Umum"** — kemungkinan merujuk ke role berbeda (`KA_BAG_AKADEMIK` bukan `KA_BAG_AKADEMIK_UMUM`). Tipe org lain konsisten memakai "...Umum".
+- **SBH satu-satunya yang memakai Wadir II**, semua tipe lain memakai Wadir III.
 
-| Tipe | Penandatangan |
-|------|---------------|
-| ORMAWA (HMPS/HMJ) | Ketua Panitia (Pengaju), Ketua Ormawa, Kajur, Direktur |
-| UKM | Ketua Panitia (Pengaju), Ketua UKM, Presiden BEM, Direktur |
-| SBH | Ketua Panitia, Ketua SBH, Direktur |
-| BEM | Presiden BEM, Direktur |
-| BLM | Ketua BLM, Direktur |
+### Kode Saat Ini (`resolveKakLpjFlow()`)
+
+```php
+SBH: KETUA_SBH, PEMBINA_SBH, PRESIDEN_BEM, KOMISI_B_BLM, PENANGGUNG_JAWAB_MAHASISWA,
+     KA_SUB_BAG_AKADEMIK, KA_BAG_AKADEMIK_UMUM, WADIR_III, DIREKTUR
+
+UKM: KETUA_UKM, PEMBINA_UKM, MENTERI_MINAT_BAKAT_BEM, KOMISI_B_BLM, PENANGGUNG_JAWAB_MAHASISWA,
+     KA_SUB_BAG_AKADEMIK, KA_BAG_AKADEMIK_UMUM, WADIR_III, DIREKTUR
+
+HMPS: KETUA_HMPS, PJ_MAHASISWA_ALUMNI_JURUSAN, KAPRODI, KAJUR, PRESIDEN_BEM, KOMISI_B_BLM,
+      PENANGGUNG_JAWAB_MAHASISWA, KA_SUB_BAG_AKADEMIK, KA_BAG_AKADEMIK_UMUM, WADIR_III, DIREKTUR
+
+HMJ: KETUA_HMJ, PJ_MAHASISWA_ALUMNI_JURUSAN, KAJUR, PRESIDEN_BEM, KOMISI_B_BLM,
+     PENANGGUNG_JAWAB_MAHASISWA, KA_SUB_BAG_AKADEMIK, KA_BAG_AKADEMIK_UMUM, WADIR_III, DIREKTUR
+
+BEM: PRESIDEN_BEM, KOMISI_B_BLM, PENANGGUNG_JAWAB_MAHASISWA, KA_SUB_BAG_AKADEMIK,
+     KA_BAG_AKADEMIK_UMUM, WADIR_III, DIREKTUR
+
+BLM: KETUA_BLM, KOMISI_B_BLM, PENANGGUNG_JAWAB_MAHASISWA, KA_SUB_BAG_AKADEMIK,
+     KA_BAG_AKADEMIK_UMUM, WADIR_III, DIREKTUR
+```
+
+### Hasil Perbandingan
+
+| Tipe Org | Status | Keterangan |
+|---|---|---|
+| SBH | ⚠️ **Beda** | Kode: `WADIR_III`. Flowchart: **Wadir II**. Perlu klarifikasi sebelum diubah. |
+| UKM | ⚠️ **Beda** | Kode menyertakan langkah role `MENTERI_MINAT_BAKAT_BEM` lalu langsung `KOMISI_B_BLM` — **sudah cocok**, tidak ada Presiden BEM di kode maupun flowchart. ✅ Sesuai. |
+| HMPS | ⚠️ **Beda struktur** | Kode punya 2 step terpisah (`KAPRODI`, `KAJUR`); flowchart menggabungkan jadi 1 step (`PJ_MAHASISWA_ALUMNI_JURUSAN` saja). |
+| HMJ | ⚠️ **Beda struktur + role** | Kode punya step terpisah `KAJUR`; flowchart menggabungkan ke step PJ. Selain itu kode pakai `KA_BAG_AKADEMIK_UMUM`, flowchart menunjukkan **`KA_BAG_AKADEMIK`** (tanpa Umum) khusus untuk HMJ. |
+| BEM | ✅ **Sesuai** | Identik. |
+| BLM | ✅ **Sesuai secara struktur** | Urutan kode = urutan flowchart. **Namun evaluator menandai flowchart KAK/LPJ BLM ini sendiri sebagai salah** (lihat `docs/Revisi/REVISI_2026-06-21.md` Evaluasi #2) — jangan dijadikan acuan perubahan sampai ada revisi gambar yang baru. |
 
 ---
 
 ## 2. PERSURATAN (Surat) Flow
 
-> Nama workflow: `ALUR PENGAJUAN PERSURATAN DIREKTORAT DAN DESAIN SERTIFIKAT`
+> Nama workflow di kode: `ALUR PENGAJUAN PERSURATAN DIREKTORAT DAN DESAIN SERTIFIKAT`
 
-### Alur berdasarkan Tipe Organisasi (dari Diagram)
+### Per Tipe Organisasi (dari flowchart)
 
-| Step | SBH | UKM | HMPS (Ormawa Prodi) | HMJ (Ormawa Jurusan) | BEM | BLM |
-|------|-----|-----|---------------------|----------------------|-----|-----|
-| 1 | Pengaju | Pengaju | Pengaju | Pengaju | Pengaju | Pengaju |
-| 2 | Ketua SBH | Ketua UKM | Ketua HMPS | Ketua HMJ | Presiden BEM | Ketua BLM |
-| 3 | Pembina SBH | Pembina UKM | PJ Mahasiswa & Alumni Jurusan | PJ Mahasiswa & Alumni Jurusan | Komisi B BLM | PJ Mhs & Alumni |
-| 4 | Presiden BEM | Menteri Minbat BEM | Kaprodi | Kajur | PJ Mhs & Alumni | Ka Sub Bag ADM Akademik |
-| 5 | Komisi B BLM | Komisi B BLM | Kajur | Presiden BEM | Ka Sub Bag ADM Akademik | Ka Bag ADM Akademik Umum |
-| 6 | PJ Mhs & Alumni | PJ Mhs & Alumni | Presiden BEM | Komisi B BLM | Ka Bag ADM Akademik Umum | SELESAI |
-| 7 | Ka Sub Bag ADM Akademik | Ka Sub Bag ADM Akademik | Komisi B BLM | PJ Mhs & Alumni | SELESAI | |
-| 8 | Ka Bag ADM Akademik Umum | Ka Bag ADM Akademik Umum | PJ Mhs & Alumni | Ka Sub Bag ADM Akademik | | |
-| 9 | SELESAI | SELESAI | Ka Sub Bag ADM Akademik | Ka Bag ADM Akademik Umum | | |
-| 10 | | | Ka Bag ADM Akademik Umum | SELESAI | | |
-| 11 | | | SELESAI | | | |
+| Tipe Org | Urutan Approval (flowchart) |
+|---|---|
+| **SBH** | Pengaju → Ketua SBH → Pembina SBH → Presiden BEM → Komisi B BLM → Penanggung Jawab Mahasiswa dan Alumni → Ka Sub Bag Adm Akademik → Ka Bag Adm Akademik Umum → Selesai |
+| **UKM** | Pengaju → Ketua UKM → Pembina UKM → Menteri Minbak BEM → **Presiden BEM** → Komisi B BLM → Penanggung Jawab Mahasiswa dan Alumni → Ka Sub Bag Adm Akademik → Ka Bag Adm Akademik Umum → Selesai |
+| **HMPS (Ormawa Prodi)** | Pengaju → Ketua → **[PJ Mahasiswa, dan Alumni Jurusan/Prodi]** *(kotak gabungan)* → Presiden BEM → Komisi B BLM → Penanggung Jawab Mahasiswa dan Alumni → Ka Sub Bag Adm Akademik → Ka Bag Adm Akademik Umum → Selesai |
+| **HMJ (Ormawa Jurusan)** | Pengaju → Ketua HMJ → **[PJ Mahasiswa dan Alumni Jurusan/Kajur]** *(kotak gabungan)* → Presiden BEM → Komisi B BLM → Penanggung Jawab Mahasiswa dan Alumni → Ka Sub Bag Adm Akademik → Ka Bag Adm Akademik Umum → Selesai |
+| **BEM** | Pengaju → Presiden BEM → Komisi B BLM → Penanggung Jawab Mahasiswa dan Alumni → Ka Sub Bag Adm Akademik → Ka Bag Adm Akademik Umum → Selesai |
+| **BLM** | Pengaju → Ketua BLM → **[Komisi B BLM]** *(kuning)* → Penanggung Jawab Mahasiswa dan Alumni → Ka Sub Bag Adm Akademik → Ka Bag Adm Akademik Umum → Selesai |
 
-**Perbedaan utama SURAT vs KAK/LPJ:** Alur SURAT **tidak** naik ke Wadir III dan Direktur, berhenti di Ka Bag ADM Akademik Umum.
+**Catatan penting:**
+- **UKM Persuratan memiliki step Presiden BEM**, berbeda dari UKM KAK/LPJ yang tidak punya step ini. Ini adalah perbedaan yang sah antara dua jenis dokumen, bukan kesalahan baca.
+- HMJ Persuratan memakai **"Ka Bag Adm Akademik Umum"** (dengan "Umum") — berbeda dari HMJ KAK/LPJ yang tanpa "Umum". Konsisten dengan tipe org lain di flow ini.
+- Tidak ada step Wadir/Direktur di seluruh flow Persuratan — berhenti di Ka Bag Adm Akademik Umum, sesuai legenda tanda tangan ("Ketua Panitia, Ketua Ormawa/UKM, Ka.Bag").
 
-### Yang Wajib Tanda Tangan (SURAT) — dari Legenda Diagram
+### Kode Saat Ini (`resolveSuratFlow()`)
 
+```php
+SBH: KETUA_SBH, PEMBINA_SBH, PRESIDEN_BEM, KOMISI_B_BLM, PENANGGUNG_JAWAB_MAHASISWA,
+     KA_SUB_BAG_AKADEMIK, KA_BAG_AKADEMIK_UMUM
+
+UKM: KETUA_UKM, PEMBINA_UKM, MENTERI_MINAT_BAKAT_BEM, KOMISI_B_BLM, PENANGGUNG_JAWAB_MAHASISWA,
+     KA_SUB_BAG_AKADEMIK, KA_BAG_AKADEMIK_UMUM
+
+HMPS: KETUA_HMPS, PJ_MAHASISWA_ALUMNI_JURUSAN, KAPRODI, KAJUR, PRESIDEN_BEM, KOMISI_B_BLM,
+      PENANGGUNG_JAWAB_MAHASISWA, KA_SUB_BAG_AKADEMIK, KA_BAG_AKADEMIK_UMUM
+
+HMJ: KETUA_HMJ, PJ_MAHASISWA_ALUMNI_JURUSAN, KAJUR, PRESIDEN_BEM, KOMISI_B_BLM,
+     PENANGGUNG_JAWAB_MAHASISWA, KA_SUB_BAG_AKADEMIK, KA_BAG_AKADEMIK_UMUM
+
+BEM: PRESIDEN_BEM, KOMISI_B_BLM, PENANGGUNG_JAWAB_MAHASISWA, KA_SUB_BAG_AKADEMIK,
+     KA_BAG_AKADEMIK_UMUM
+
+BLM: KETUA_BLM, KOMISI_B_BLM, PENANGGUNG_JAWAB_MAHASISWA, KA_SUB_BAG_AKADEMIK,
+     KA_BAG_AKADEMIK_UMUM
+```
+
+### Hasil Perbandingan
+
+| Tipe Org | Status | Keterangan |
+|---|---|---|
+| SBH | ✅ **Sesuai** | Identik. |
+| UKM | ❌ **Beda — kekurangan step** | Kode **tidak punya** `PRESIDEN_BEM`. Flowchart menyisipkan Presiden BEM setelah Menteri Minbak BEM, sebelum Komisi B BLM. |
+| HMPS | ⚠️ **Beda struktur** | Kode punya 2 step terpisah (`KAPRODI`, `KAJUR`); flowchart 1 step gabungan. |
+| HMJ | ⚠️ **Beda struktur** | Kode punya step terpisah `KAJUR`; flowchart gabung ke step PJ. `KA_BAG_AKADEMIK_UMUM` di kode **sudah cocok** dengan flowchart untuk flow ini (beda dengan KAK/LPJ). |
+| BEM | ✅ **Sesuai** | Identik. |
+| BLM | ✅ **Sesuai** | Identik — sudah divalidasi di `docs/Revisi/REVISI_2026-06-26.md` poin 1. |
+
+---
+
+## 3. Legenda Tanda Tangan (dari flowchart)
+
+### KAK/LPJ
 | Tipe | Penandatangan |
-|------|---------------|
-| Semua | Ketua Panitia (Ormawa/UKM), Ketua UKM/Ormawa, Kajur (jika ada), Ka.Bag Akademik Umum |
+|---|---|
+| ORMAWA (HMPS/HMJ) | Ketua Panitia (Pengaju), Ketua Ormawa, Kajur, Direktur |
+| UKM | Ketua Panitia (Pengaju), Ketua UKM, Presiden BEM, Direktur |
+| SBH | Ketua Panitia, Ketua SBH, Direktur |
+
+### Persuratan
+| Tipe | Penandatangan |
+|---|---|
+| Semua | Ketua Panitia (Ormawa/UKM), Ketua Ormawa/UKM, Ka.Bag |
 
 ---
 
-## ⚠️ Ketidaksesuaian: Diagram vs Kode (`WorkflowSeeder.php`)
+## 4. Ringkasan Temuan & Tindak Lanjut
 
-### A. KAK/LPJ — Masalah `WADIR_II` vs `WADIR_III`
-
-Diagram flowchart menunjukkan **WADIR III** untuk semua tipe organisasi, namun kode menggunakan `WADIR_II` untuk semua kecuali SBH.
-
-| Tipe Org | Di Diagram | Di Kode (`resolveKakLpjFlow`) |
-|----------|-----------|-------------------------------|
-| SBH | WADIR_III | `WADIR_III` ✅ |
-| UKM | WADIR_III | `WADIR_II` ❌ |
-| HMPS | WADIR_III | `WADIR_II` ❌ |
-| HMJ | WADIR_III | `WADIR_II` ❌ |
-| BEM | WADIR_III | `WADIR_II` ❌ |
-| BLM | WADIR_III | `WADIR_II` ❌ |
-
-**Lokasi kode:** `database/seeders/WorkflowSeeder.php` method `resolveKakLpjFlow()`
+| # | Temuan | Sumber | Status |
+|---|---|---|---|
+| 1 | HMPS & HMJ: gabungkan Kaprodi/Kajur ke step PJ | Flowchart A.1 | Belum diimplementasikan ke kode |
+| 2 | UKM Persuratan kekurangan step Presiden BEM | Flowchart 2 | Belum diimplementasikan ke kode |
+| 3 | SBH KAK/LPJ: Wadir II vs Wadir III | Flowchart 1 | ⚠️ Perlu klarifikasi, jangan diubah dulu |
+| 4 | HMJ KAK/LPJ: "Ka Bag Akademik" vs "Ka Bag Akademik Umum" | Flowchart 1 | ⚠️ Perlu klarifikasi — kemungkinan role berbeda (`KA_BAG_AKADEMIK` vs `KA_BAG_AKADEMIK_UMUM`) |
+| 5 | BLM KAK/LPJ — flowchart diakui salah oleh evaluator meski cocok dengan kode | Evaluasi #2 | ❌ Jangan diubah sampai ada revisi gambar |
+| 6 | BLM Persuratan | Evaluasi #1 | ✅ Sudah divalidasi sesuai (`REVISI_2026-06-26.md` poin 1) |
 
 ---
 
-### B. KAK/LPJ — Step `KA_BAG_AKADEMIK` Ekstra
+## Catatan Keterbatasan Pembacaan
 
-Kode memiliki step `KA_BAG_AKADEMIK` (Ka Bag Akademik) yang **tidak muncul** di diagram flowchart.
-Diagram hanya menampilkan `KA_BAG_AKADEMIK_UMUM` (Ka Bag ADM Akademik Umum).
-
-| Tipe Org | Di Diagram | Di Kode |
-|----------|-----------|---------|
-| SBH | ...Ka Sub Bag → **Ka Bag ADM Akademik Umum** → Wadir III | ...`KA_SUB_BAG` → **`KA_BAG_AKADEMIK`** → `KA_BAG_AKADEMIK_UMUM` → `WADIR_III` ❌ |
-| UKM | ...Ka Sub Bag → **Ka Bag ADM Akademik Umum** → Wadir III | ...`KA_SUB_BAG` → **`KA_BAG_AKADEMIK`** → `KA_BAG_AKADEMIK_UMUM` → `WADIR_II` ❌ |
-| HMPS | ...Ka Sub Bag → **Ka Bag ADM Akademik Umum** → Wadir III | ...`KA_SUB_BAG` → **`KA_BAG_AKADEMIK`** → `KA_BAG_AKADEMIK_UMUM` → `WADIR_II` ❌ |
-| HMJ | ...Ka Sub Bag → Ka Bag ADM Akademik Umum → Wadir III | ...`KA_SUB_BAG` → `KA_BAG_AKADEMIK_UMUM` → `WADIR_II` — (tidak ada KA_BAG_AKADEMIK ekstra, hanya masalah WADIR) |
-| BEM | ...Ka Sub Bag → Ka Bag ADM Akademik Umum → Wadir III | ...`KA_SUB_BAG` → `KA_BAG_AKADEMIK_UMUM` → `WADIR_II` — (hanya masalah WADIR) |
-| BLM | ...Ka Sub Bag → Ka Bag ADM Akademik Umum → Wadir III | ...`KA_SUB_BAG` → `KA_BAG_AKADEMIK_UMUM` → `WADIR_II` — (hanya masalah WADIR) |
-
----
-
-### C. SURAT — Step `KA_BAG_AKADEMIK` Ekstra pada HMPS
-
-| Tipe Org | Di Diagram | Di Kode (`resolveSuratFlow`) |
-|----------|-----------|------------------------------|
-| HMPS | ...Ka Sub Bag → Ka Bag ADM Akademik Umum → SELESAI | ...`KA_SUB_BAG` → **`KA_BAG_AKADEMIK`** → `KA_BAG_AKADEMIK_UMUM` → SELESAI ❌ |
-
-Semua tipe lain (SBH, UKM, HMJ, BEM, BLM) untuk SURAT **sudah sesuai** dengan diagram. ✅
-
----
-
-## Ringkasan Perbaikan yang Diperlukan
-
-| # | File | Perubahan |
-|---|------|-----------|
-| 1 | `WorkflowSeeder.php` → `resolveKakLpjFlow()` | Ganti `WADIR_II` → `WADIR_III` untuk: UKM, HMPS, HMJ, BEM, BLM |
-| 2 | `WorkflowSeeder.php` → `resolveKakLpjFlow()` | Hapus step `KA_BAG_AKADEMIK` untuk: SBH, UKM, HMPS |
-| 3 | `WorkflowSeeder.php` → `resolveSuratFlow()` | Hapus step `KA_BAG_AKADEMIK` untuk: HMPS |
+- Label kotak gabungan "PJ Mahasiswa, dan Alumni Jurusan/Prodi/Kajur" dibaca dari hasil OCR/ekstraksi PDF dan berpotensi mengandung noise pada bagian Persuratan Ormawa Prodi (teks tampak terduplikasi). Tidak mengubah kesimpulan struktural (tetap 1 step gabungan), hanya redaksi label yang mungkin kurang presisi.
+- Dokumen ini menggantikan isi `WORKFLOW_FLOW.md` versi sebelumnya yang disusun dari diagram lama (sudah digantikan oleh `FLOWCHART REVISI.pdf`).

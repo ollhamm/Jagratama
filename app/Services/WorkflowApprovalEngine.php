@@ -162,6 +162,7 @@ class WorkflowApprovalEngine
                 'approved_by' => $approver->id,
                 'step_order' => $step->step_order,
                 'result' => ApprovalStatus::APPROVED->value,
+                'notes' => $notes,
             ]);
 
             return $approval;
@@ -212,6 +213,7 @@ class WorkflowApprovalEngine
                 'approved_by' => $approver->id,
                 'step_order' => $step->step_order,
                 'result' => ApprovalStatus::REJECTED->value,
+                'notes' => $notes,
             ]);
 
             return $approval;
@@ -232,11 +234,12 @@ class WorkflowApprovalEngine
                 throw new DomainException('Tidak ada dokumen yang berstatus rejected.');
             }
 
-            // Ambil approval yang ditolak
+            // Ambil approval yang ditolak — paling baru, baik dari step_order maupun siklus reject berulang di step yang sama
             $rejectedApproval = DocumentApproval::query()
                 ->where('document_id', $document->id)
                 ->where('status', ApprovalStatus::REJECTED)
                 ->orderByDesc('step_order')
+                ->orderByDesc('created_at')
                 ->first();
 
             if (! $rejectedApproval) {
@@ -245,12 +248,17 @@ class WorkflowApprovalEngine
 
             $rejectedStepOrder = $rejectedApproval->step_order;
 
-            // Reset approval yang ditolak menjadi PENDING kembali
-            $rejectedApproval->update([
-                'status'      => ApprovalStatus::PENDING,
-                'notes'       => null,
-                'approved_at' => null,
-                'approved_by' => $document->created_by,
+            // Catatan reject DIBIARKAN sebagai histori (status REJECTED, notes tetap ada) —
+            // tidak ditimpa. Buat approval baru di step_order yang sama untuk siklus berikutnya.
+            $newApproval = $this->approvals->create([
+                'document_id'       => $document->id,
+                'workflow_step_id'  => $rejectedApproval->workflow_step_id,
+                'approved_by'       => $document->created_by,
+                'step_order'        => $rejectedApproval->step_order,
+                'role_id'           => $rejectedApproval->role_id,
+                'status'            => ApprovalStatus::PENDING,
+                'notes'             => null,
+                'approved_at'       => null,
             ]);
 
             // Aktifkan kembali instance dari step yang ditolak
@@ -271,6 +279,7 @@ class WorkflowApprovalEngine
             Log::info('dokumen_disubmit_ulang', [
                 'document_id'       => $document->id,
                 'resume_step_order' => $rejectedStepOrder,
+                'previous_reject_notes' => $rejectedApproval->notes,
             ]);
 
             return $instance;

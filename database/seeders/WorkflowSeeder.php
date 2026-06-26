@@ -134,8 +134,6 @@ class WorkflowSeeder extends Seeder
             OrganizationType::HMPS->value => [
                 'KETUA_HMPS',
                 'PJ_MAHASISWA_ALUMNI_JURUSAN',
-                'KAPRODI',
-                'KAJUR',
                 'PRESIDEN_BEM',
                 'KOMISI_B_BLM',
                 'PENANGGUNG_JAWAB_MAHASISWA',
@@ -147,7 +145,6 @@ class WorkflowSeeder extends Seeder
             OrganizationType::HMJ->value => [
                 'KETUA_HMJ',
                 'PJ_MAHASISWA_ALUMNI_JURUSAN',
-                'KAJUR',
                 'PRESIDEN_BEM',
                 'KOMISI_B_BLM',
                 'PENANGGUNG_JAWAB_MAHASISWA',
@@ -203,8 +200,6 @@ class WorkflowSeeder extends Seeder
                 OrganizationType::HMPS->value => [
                     'KETUA_HMPS',
                     'PJ_MAHASISWA_ALUMNI_JURUSAN',
-                    'KAPRODI',
-                    'KAJUR',
                     'PRESIDEN_BEM',
                     'KOMISI_B_BLM',
                     'PENANGGUNG_JAWAB_MAHASISWA',
@@ -214,7 +209,6 @@ class WorkflowSeeder extends Seeder
                 OrganizationType::HMJ->value => [
                     'KETUA_HMJ',
                     'PJ_MAHASISWA_ALUMNI_JURUSAN',
-                    'KAJUR',
                     'PRESIDEN_BEM',
                     'KOMISI_B_BLM',
                     'PENANGGUNG_JAWAB_MAHASISWA',
@@ -254,8 +248,8 @@ class WorkflowSeeder extends Seeder
         return match ($organizationType) {
             OrganizationType::SBH->value => ['KETUA_SBH', 'DIREKTUR'],
             OrganizationType::UKM->value => ['KETUA_UKM', 'PRESIDEN_BEM', 'DIREKTUR'],
-            OrganizationType::HMPS->value => ['KETUA_HMPS', 'KAJUR', 'DIREKTUR'],
-            OrganizationType::HMJ->value => ['KETUA_HMJ', 'KAJUR', 'DIREKTUR'],
+            OrganizationType::HMPS->value => ['KETUA_HMPS', 'PJ_MAHASISWA_ALUMNI_JURUSAN', 'DIREKTUR'],
+            OrganizationType::HMJ->value => ['KETUA_HMJ', 'PJ_MAHASISWA_ALUMNI_JURUSAN', 'DIREKTUR'],
             OrganizationType::BEM->value => ['PRESIDEN_BEM', 'DIREKTUR'],
             OrganizationType::BLM->value => ['KETUA_BLM', 'DIREKTUR'],
             default => ['DIREKTUR'],
