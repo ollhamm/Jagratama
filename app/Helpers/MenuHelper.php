@@ -23,12 +23,6 @@ class MenuHelper
                 'roles' => ['PENGAJU', 'ADMIN'],
             ],
             [
-                'icon' => 'upload',
-                'name' => 'Publish Dokumen',
-                'path' => '/app/publish',
-                'roles' => ['PENGAJU', 'ADMIN', 'KOMISI_B_BLM'],
-            ],
-            [
                 'icon' => 'task',
                 'name' => 'Approval',
                 'path' => '/app/approvals/pending',

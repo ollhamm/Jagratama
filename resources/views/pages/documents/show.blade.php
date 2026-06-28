@@ -194,6 +194,16 @@
                                     <textarea name="notes" rows="2" placeholder="Alasan reject" class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-xs dark:border-gray-700" required>{{ old('notes') }}</textarea>
                                     <button type="submit" class="w-full rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-700">Reject Step Ini</button>
                                 </form>
+                            @elseif(isset($canPublish) && $canPublish)
+                                <div class="rounded-lg border border-brand-200 bg-brand-50 p-3 dark:border-brand-700/40 dark:bg-brand-500/10">
+                                    <p class="text-xs text-brand-700 dark:text-brand-400">
+                                        Semua step approval sudah selesai. Sebagai approver pada step paling akhir, anda dapat mempublikasikan dokumen ini.
+                                    </p>
+                                </div>
+                                <form method="POST" action="{{ route('app.documents.publish', $document->id) }}">
+                                    @csrf
+                                    <button type="submit" class="w-full rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Publish Dokumen</button>
+                                </form>
                             @else
                                 <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-800">
                                     <p class="text-xs text-gray-500">Anda tidak memiliki approval pending pada step aktif dokumen ini.</p>
@@ -237,9 +247,7 @@
 
             @php
                 $publishStepPublished = ! is_null($document->published_at);
-                $publishStepInReview  = ! $publishStepPublished && $document->publish_status === 'PENDING_REVIEW';
-                $publishStepRejected  = ! $publishStepPublished && $document->publish_status === 'REJECTED';
-                $publishStepActive    = $currentStatus === 'COMPLETED' && ! $publishStepPublished && ! $publishStepInReview && ! $publishStepRejected;
+                $publishStepActive    = $currentStatus === 'COMPLETED' && ! $publishStepPublished;
 
                 $totalSteps     = $workflowSteps->count() + 1;
                 $completedSteps = $publishStepPublished
@@ -253,8 +261,6 @@
                     <span class="text-sm text-gray-600 dark:text-gray-300">
                         @if($publishStepPublished)
                             Step {{ $totalSteps }} dari {{ $totalSteps }} — <span class="font-semibold text-success-600">Selesai</span>
-                        @elseif($currentStatus === 'COMPLETED' && $publishStepInReview)
-                            Step {{ $workflowSteps->count() }} dari {{ $totalSteps }} — <span class="font-semibold text-warning-600">Menunggu Komisi B</span>
                         @elseif($currentStatus === 'COMPLETED')
                             Step {{ $workflowSteps->count() }} dari {{ $totalSteps }} — <span class="font-semibold text-brand-600">Menunggu Publish</span>
                         @elseif($currentStatus === 'REJECTED')
@@ -317,16 +323,10 @@
                         <div class="flex flex-col items-center" style="flex: 1">
                             <div class="relative z-10 flex h-10 w-10 items-center justify-center rounded-full border-2 bg-white transition-all dark:bg-gray-900
                                 {{ $publishStepPublished ? 'border-success-500 bg-success-50 dark:bg-success-500/20' : '' }}
-                                {{ $publishStepRejected  ? 'border-error-500 bg-error-50 dark:bg-error-500/20' : '' }}
-                                {{ $publishStepInReview  ? 'border-warning-500 bg-warning-50 shadow-lg shadow-warning-500/30 dark:bg-warning-500/20' : '' }}
                                 {{ $publishStepActive    ? 'border-brand-500 bg-brand-50 shadow-lg shadow-brand-500/30 dark:bg-brand-500/20' : '' }}
-                                {{ (!$publishStepPublished && !$publishStepRejected && !$publishStepInReview && !$publishStepActive) ? 'border-gray-300 dark:border-gray-700' : '' }}">
+                                {{ (!$publishStepPublished && !$publishStepActive) ? 'border-gray-300 dark:border-gray-700' : '' }}">
                                 @if($publishStepPublished)
                                     <svg class="h-5 w-5 text-success-600 dark:text-success-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-                                @elseif($publishStepRejected)
-                                    <svg class="h-5 w-5 text-error-600 dark:text-error-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                                @elseif($publishStepInReview)
-                                    <svg class="h-5 w-5 text-warning-600 dark:text-warning-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                 @else
                                     <svg class="h-5 w-5 {{ $publishStepActive ? 'text-brand-500 dark:text-brand-400' : 'text-gray-400 dark:text-gray-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
                                 @endif
@@ -334,25 +334,17 @@
                             <div class="mt-2 text-center">
                                 <p class="text-xs font-medium
                                     {{ $publishStepPublished ? 'text-success-600 dark:text-success-400' : '' }}
-                                    {{ $publishStepRejected  ? 'text-error-600 dark:text-error-400' : '' }}
-                                    {{ $publishStepInReview  ? 'text-warning-600 dark:text-warning-400' : '' }}
                                     {{ $publishStepActive    ? 'text-brand-600 dark:text-brand-400' : '' }}
-                                    {{ (!$publishStepPublished && !$publishStepRejected && !$publishStepInReview && !$publishStepActive) ? 'text-gray-400 dark:text-gray-600' : '' }}">
+                                    {{ (!$publishStepPublished && !$publishStepActive) ? 'text-gray-400 dark:text-gray-600' : '' }}">
                                     Publish Dokumen
                                 </p>
                                 <p class="mt-0.5 text-[10px]
                                     {{ $publishStepPublished ? 'text-success-500' : '' }}
-                                    {{ $publishStepRejected  ? 'text-error-500' : '' }}
-                                    {{ $publishStepInReview  ? 'text-warning-500' : '' }}
-                                    {{ (!$publishStepPublished && !$publishStepRejected && !$publishStepInReview) ? 'text-gray-400' : '' }}">
+                                    {{ !$publishStepPublished ? 'text-gray-400' : '' }}">
                                     @if($publishStepPublished)
                                         {{ optional($document->published_at)->format('d/m H:i') }}
-                                    @elseif($publishStepRejected)
-                                        Ditolak Komisi B
-                                    @elseif($publishStepInReview)
-                                        Review Komisi B
                                     @elseif($publishStepActive)
-                                        Siap diajukan
+                                        Menunggu approver terakhir publish
                                     @else
                                         Menunggu
                                     @endif

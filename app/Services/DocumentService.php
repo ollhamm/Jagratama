@@ -190,6 +190,62 @@ class DocumentService
         ]);
     }
 
+    /**
+     * Publish dokumen yang sudah COMPLETED, langsung pakai attachment asli
+     * (yang sudah berisi QR tanda tangan tiap approver) — tidak ada upload file baru.
+     * Hanya boleh dilakukan oleh approver di step PALING AKHIR alur dokumen ini, atau admin.
+     */
+    public function publishCompleted(Document $document, User $actor): void
+    {
+        if ($document->current_status !== DocumentStatus::COMPLETED) {
+            throw new DomainException('Dokumen hanya bisa dipublikasikan setelah semua approval selesai.');
+        }
+
+        if ($document->published_at) {
+            throw new DomainException('Dokumen ini sudah dipublikasikan sebelumnya.');
+        }
+
+        $isAdmin = $actor->userRoles()->whereHas('role', fn ($q) => $q->where('code', 'ADMIN'))->exists();
+
+        if (! $isAdmin && ! $this->isLastApprover($document, $actor)) {
+            throw new DomainException('Hanya approver pada step paling akhir yang dapat mempublikasikan dokumen ini.');
+        }
+
+        $document->loadMissing('attachments');
+        $attachment = $document->attachments->first();
+        if (! $attachment) {
+            throw new DomainException('Lampiran dokumen tidak ditemukan.');
+        }
+
+        $document->update([
+            'public_file_path' => $attachment->file_path,
+            'publish_status'   => null,
+            'publish_notes'    => null,
+            'published_at'     => now(),
+        ]);
+
+        Log::info('dokumen_dipublikasikan', [
+            'document_id'  => $document->id,
+            'published_by' => $actor->id,
+        ]);
+    }
+
+    /**
+     * Cek apakah $actor adalah approver yang melakukan approval pada step_order
+     * PALING BESAR (paling akhir) untuk dokumen ini — dihitung dinamis per dokumen,
+     * bukan hardcode, karena jumlah step beda-beda tiap alur (org_type + document_type).
+     */
+    public function isLastApprover(Document $document, User $actor): bool
+    {
+        $lastApproval = DocumentApproval::query()
+            ->where('document_id', $document->id)
+            ->where('status', ApprovalStatus::APPROVED)
+            ->orderByDesc('step_order')
+            ->first();
+
+        return $lastApproval !== null && $lastApproval->approved_by === $actor->id;
+    }
+
     public function deleteDraft(Document $document, User $actor): void
     {
         if ($document->current_status !== DocumentStatus::DRAFT) {

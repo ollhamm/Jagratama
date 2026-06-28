@@ -9,7 +9,6 @@ use App\Http\Controllers\PublicSignatureController;
 use App\Http\Controllers\SignatureController;
 use App\Http\Controllers\Web\ApprovalPageController;
 use App\Http\Controllers\Web\DocumentPageController;
-use App\Http\Controllers\Web\PublishPageController;
 use App\Http\Controllers\Web\UserManagementPageController;
 use Illuminate\Support\Facades\Route;
 
@@ -38,21 +37,10 @@ Route::middleware(['auth', 'active'])->group(function () use ($pengajuRoles) {
         Route::post('/app/documents/{id}/submit', [DocumentPageController::class, 'submit'])->name('app.documents.submit');
         Route::get('/app/documents/{id}/resubmit', [DocumentPageController::class, 'resubmitForm'])->name('app.documents.resubmit.form');
         Route::post('/app/documents/{id}/resubmit', [DocumentPageController::class, 'resubmit'])->name('app.documents.resubmit');
-
-        Route::post('/app/publish/{id}', [PublishPageController::class, 'publish'])->name('app.publish.publish');
     });
 
-    // Publish index & review — Pengaju, Komisi B, dan Admin
-    Route::middleware('role:PENGAJU,ADMIN,KOMISI_B_BLM')->group(function () {
-        Route::get('/app/publish', [PublishPageController::class, 'index'])->name('app.publish.index');
-        Route::get('/app/publish/{id}/pdf', [PublishPageController::class, 'previewPdf'])->name('app.publish.preview-pdf');
-    });
-
-    // Approve/reject — Komisi B dan Admin saja
-    Route::middleware('role:KOMISI_B_BLM,ADMIN')->group(function () {
-        Route::post('/app/publish/{id}/approve', [PublishPageController::class, 'approve'])->name('app.publish.approve');
-        Route::post('/app/publish/{id}/reject', [PublishPageController::class, 'reject'])->name('app.publish.reject');
-    });
+    // Publish — hanya approver step paling akhir dokumen ini, atau admin (dicek di service, bukan middleware role)
+    Route::post('/app/documents/{id}/publish', [DocumentPageController::class, 'publish'])->name('app.documents.publish');
 
     Route::get('/app/documents/{id}', [DocumentPageController::class, 'show'])->name('app.documents.show');
     Route::get('/app/documents/{id}/attachments/{attachmentId}/preview', [DocumentPageController::class, 'previewAttachment'])->name('app.documents.attachments.preview');

@@ -52,7 +52,7 @@ class ApprovalPageController extends Controller
         $redirectTo = $request->validated('redirect_to') ?? route('app.approvals.pending');
 
         try {
-            $this->approvals->approve(
+            $approval = $this->approvals->approve(
                 $id,
                 $request->user(),
                 $request->validated('notes'),
@@ -60,6 +60,12 @@ class ApprovalPageController extends Controller
             );
         } catch (DomainException $exception) {
             return redirect()->to($redirectTo)->with('error', $exception->getMessage());
+        }
+
+        // Kalau approval ini yang menyelesaikan dokumen, selalu arahkan ke halaman detail
+        // dokumen (bukan balik ke daftar pending) — supaya tombol Publish langsung terlihat.
+        if ($approval->document?->current_status?->value === 'COMPLETED') {
+            $redirectTo = route('app.documents.show', $approval->document_id);
         }
 
         return redirect()->to($redirectTo)->with('success', 'Approval berhasil diproses.');

@@ -199,6 +199,12 @@ class DocumentPageController extends Controller
             $suggestedApprovalSignatureValue = base64_encode(json_encode($approvalSignaturePayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
         }
 
+        // Tombol "Publish Dokumen" hanya muncul untuk approver step paling akhir (atau admin),
+        // dan hanya saat dokumen sudah COMPLETED tapi belum pernah dipublikasikan.
+        $canPublish = ($document->current_status->value ?? $document->current_status) === 'COMPLETED'
+            && ! $document->published_at
+            && ($isAdmin || $this->documents->isLastApprover($document, $authUser));
+
         return view('pages.documents.show', [
             'title' => 'Konfirmasi Dokumen',
             'document' => $document,
@@ -208,6 +214,7 @@ class DocumentPageController extends Controller
             'pendingApprovalForUser' => $pendingApprovalForUser,
             'approvalSignaturePayload' => $approvalSignaturePayload,
             'suggestedApprovalSignatureValue' => $suggestedApprovalSignatureValue,
+            'canPublish' => $canPublish,
         ]);
     }
 
@@ -226,6 +233,23 @@ class DocumentPageController extends Controller
         }
 
         return redirect()->route('app.documents.show', $id)->with('success', 'Dokumen berhasil disubmit.');
+    }
+
+    public function publish(string $id): RedirectResponse
+    {
+        $document = $this->documents->findForUser($id, auth()->user());
+
+        if (! $document) {
+            return redirect()->route('app.documents.index')->with('error', 'Dokumen tidak ditemukan.');
+        }
+
+        try {
+            $this->documents->publishCompleted($document, auth()->user());
+        } catch (DomainException $exception) {
+            return redirect()->route('app.documents.show', $id)->with('error', $exception->getMessage());
+        }
+
+        return redirect()->route('app.documents.show', $id)->with('success', 'Dokumen berhasil dipublikasikan.');
     }
 
     public function resubmitForm(string $id): View|RedirectResponse
