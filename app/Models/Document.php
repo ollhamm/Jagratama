@@ -38,6 +38,7 @@ class Document extends Model
         'published_at',
         'publish_status',
         'publish_notes',
+        'signature_slots',
     ];
 
     protected function casts(): array
@@ -49,6 +50,7 @@ class Document extends Model
             'completed_at' => 'datetime',
             'published_at' => 'datetime',
             'created_at' => 'datetime',
+            'signature_slots' => 'array',
         ];
     }
 

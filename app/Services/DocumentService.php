@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use App\Enums\ApprovalStatus;
 use App\Enums\DocumentStatus;
 use App\Models\Document;
+use App\Models\DocumentApproval;
 use App\Models\PublicSignature;
 use App\Models\User;
 use App\Repositories\Contracts\DocumentRepositoryInterface;
+use App\Repositories\Contracts\WorkflowRepositoryInterface;
 use DomainException;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Http\UploadedFile;
@@ -16,9 +19,17 @@ use Illuminate\Support\Facades\Storage;
 
 class DocumentService
 {
+    /**
+     * Sentinel step_order untuk slot tanda tangan Pengaju — terpisah dari step_order
+     * workflow asli (yang dimulai dari approver pertama, bukan dari pengaju).
+     */
+    private const PENGAJU_STEP_ORDER = 0;
+
     public function __construct(
         private readonly DocumentRepositoryInterface $documents,
         private readonly WorkflowApprovalEngine $workflowEngine,
+        private readonly WorkflowRepositoryInterface $workflows,
+        private readonly PdfSignatureSlotService $signatureSlots,
     ) {
     }
 
@@ -86,6 +97,17 @@ class DocumentService
             throw new DomainException('Hanya pengaju yang dapat submit dokumen.');
         }
 
+        $document->loadMissing('organization', 'attachments');
+        $requiredSteps = $this->requiredSignatureSteps($document);
+
+        // Validasi & petakan slot tanda tangan di PDF SEBELUM dokumen benar-benar disubmit,
+        // supaya pengaju langsung tahu kalau template-nya salah, bukan baru ketahuan saat approval.
+        // Pengaju selalu jadi slot pertama (step_order sentinel = 0), terpisah dari step_order
+        // workflow asli (yang mulai dari approver pertama, bukan dari pengaju).
+        if ($requiredSteps->isNotEmpty()) {
+            $this->prepareSignatureSlots($document, $requiredSteps);
+        }
+
         if ($signatureValue) {
             $document->load('creator');
             $publicSig = PublicSignature::query()->create([
@@ -100,6 +122,16 @@ class DocumentService
                 'submitter_signature'             => $signatureValue,
                 'public_submitter_signature_id'   => $publicSig->id,
             ]);
+
+            if ($requiredSteps->isNotEmpty()) {
+                $this->embedApproverSlot(
+                    $document,
+                    self::PENGAJU_STEP_ORDER,
+                    'Pengaju',
+                    $document->creator->name ?? $actor->name,
+                    route('public.signature.show', $publicSig->id)
+                );
+            }
         }
 
         $this->workflowEngine->submitDocument($document);
@@ -124,7 +156,7 @@ class DocumentService
 
         DB::transaction(function () use ($document, $newFile) {
             // Hapus lampiran lama dan simpan file baru
-            $document->loadMissing('attachments');
+            $document->loadMissing('attachments', 'organization');
             foreach ($document->attachments as $old) {
                 Storage::delete($old->file_path);
                 $old->delete();
@@ -137,6 +169,17 @@ class DocumentService
                 'file_type'   => $newFile->getClientMimeType() ?? 'application/octet-stream',
                 'uploaded_at' => now(),
             ]);
+
+            $document->unsetRelation('attachments');
+            $document->loadMissing('attachments');
+
+            // File baru = belum ada QR sama sekali. Petakan ulang slot, lalu tempel ulang
+            // QR untuk semua approval yang SUDAH approve sebelumnya (mereka tidak perlu ttd ulang).
+            $requiredSteps = $this->requiredSignatureSteps($document);
+            if ($requiredSteps->isNotEmpty()) {
+                $this->prepareSignatureSlots($document, $requiredSteps);
+                $this->reembedExistingApprovals($document, $requiredSteps);
+            }
 
             $this->workflowEngine->resubmitDocument($document);
         });
@@ -175,5 +218,130 @@ class DocumentService
                 'deleted_by' => $actor->id,
             ]);
         });
+    }
+
+    /**
+     * Step-step workflow aktif (org_type + document_type dokumen ini) yang wajib tanda tangan,
+     * terurut berdasarkan step_order.
+     */
+    private function requiredSignatureSteps(Document $document): \Illuminate\Support\Collection
+    {
+        $organizationType = $document->organization?->type?->value ?? $document->organization?->type;
+        $workflow = $this->workflows->findActiveByType((string) $organizationType, $document->document_type_id);
+
+        if (! $workflow) {
+            return collect();
+        }
+
+        return $workflow->steps->where('is_required_signature', true)->sortBy('step_order')->values();
+    }
+
+    /**
+     * Ekstrak & validasi slot tanda tangan dari PDF attachment, petakan ke step_order,
+     * simpan ke documents.signature_slots. Melempar DomainException kalau jumlah key
+     * di PDF tidak sesuai jumlah step yang wajib tanda tangan.
+     */
+    private function prepareSignatureSlots(Document $document, \Illuminate\Support\Collection $requiredSteps): void
+    {
+        $attachment = $document->attachments->first();
+        if (! $attachment) {
+            throw new DomainException('Lampiran dokumen tidak ditemukan untuk validasi slot tanda tangan.');
+        }
+
+        $absolutePath = Storage::path($attachment->file_path);
+        // +1 untuk slot Pengaju, yang selalu jadi slot pertama (terpisah dari step_order workflow)
+        $expectedCount = $requiredSteps->count() + 1;
+        $extracted = $this->signatureSlots->extractSlots($absolutePath, $expectedCount);
+
+        $stepOrders = array_merge([self::PENGAJU_STEP_ORDER], $requiredSteps->pluck('step_order')->values()->all());
+        $slots = [];
+        foreach ($extracted['slots'] as $index => $slot) {
+            $slots[] = array_merge($slot, ['step_order' => $stepOrders[$index]]);
+        }
+
+        $document->update([
+            'signature_slots' => [
+                'page_index' => $extracted['page_index'],
+                'page_width' => $extracted['page_width'],
+                'page_height' => $extracted['page_height'],
+                'slots' => $slots,
+            ],
+        ]);
+    }
+
+    /**
+     * Tempel QR + teks untuk satu step_order tertentu, kalau memang termasuk slot wajib TTD.
+     */
+    private function embedApproverSlot(Document $document, int $stepOrder, string $jabatan, string $nama, string $verificationUrl): void
+    {
+        $document->refresh();
+        $signatureSlots = $document->signature_slots;
+
+        if (! $signatureSlots) {
+            return;
+        }
+
+        $slot = collect($signatureSlots['slots'])->firstWhere('step_order', $stepOrder);
+        if (! $slot) {
+            return;
+        }
+
+        $attachment = $document->attachments->first() ?? $document->attachments()->first();
+        if (! $attachment) {
+            return;
+        }
+
+        $absolutePath = Storage::path($attachment->file_path);
+
+        $this->signatureSlots->embedSlot(
+            $absolutePath,
+            $signatureSlots,
+            $slot,
+            $jabatan,
+            $nama,
+            $verificationUrl
+        );
+    }
+
+    /**
+     * Saat resubmit, file PDF baru tidak punya QR siapapun. Tempel ulang QR untuk semua
+     * approval yang SUDAH approve sebelumnya (mereka tidak perlu tanda tangan ulang).
+     */
+    private function reembedExistingApprovals(Document $document, \Illuminate\Support\Collection $requiredSteps): void
+    {
+        $requiredStepOrders = $requiredSteps->pluck('step_order')->all();
+
+        $approvedSignedSteps = DocumentApproval::query()
+            ->where('document_id', $document->id)
+            ->where('status', ApprovalStatus::APPROVED)
+            ->whereIn('step_order', $requiredStepOrders)
+            ->with(['workflowStep.role', 'approver', 'signatures'])
+            ->orderBy('step_order')
+            ->get();
+
+        foreach ($approvedSignedSteps as $approval) {
+            $signature = $approval->signatures->first();
+            if (! $signature || ! $signature->public_signature_id) {
+                continue;
+            }
+
+            $jabatan = $approval->workflowStep->role->name ?? ($approval->workflowStep->role->code ?? '-');
+            $nama = $approval->approver->name ?? '-';
+            $verificationUrl = route('public.signature.show', $signature->public_signature_id);
+
+            $this->embedApproverSlot($document, $approval->step_order, $jabatan, $nama, $verificationUrl);
+        }
+
+        // Pengaju juga perlu ditempel ulang (slot pertama, sentinel step_order = 0).
+        if ($document->public_submitter_signature_id && $requiredSteps->isNotEmpty()) {
+            $document->loadMissing('creator');
+            $this->embedApproverSlot(
+                $document,
+                self::PENGAJU_STEP_ORDER,
+                'Pengaju',
+                $document->creator->name ?? '-',
+                route('public.signature.show', $document->public_submitter_signature_id)
+            );
+        }
     }
 }

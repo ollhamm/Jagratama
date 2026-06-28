@@ -16,6 +16,7 @@ use App\Repositories\Contracts\WorkflowRepositoryInterface;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class WorkflowApprovalEngine
 {
@@ -23,6 +24,7 @@ class WorkflowApprovalEngine
         private readonly WorkflowRepositoryInterface $workflows,
         private readonly ApprovalRepositoryInterface $approvals,
         private readonly NotificationService $notifications,
+        private readonly PdfSignatureSlotService $signatureSlots,
     ) {
     }
 
@@ -119,6 +121,14 @@ class WorkflowApprovalEngine
                     'signed_at'            => now(),
                     'public_signature_id'  => $publicSig->id,
                 ]);
+
+                $this->embedSlotForStep(
+                    $document,
+                    $step->step_order,
+                    $approval->workflowStep->role->name ?? ($approval->workflowStep->role->code ?? '-'),
+                    $approver->name,
+                    route('public.signature.show', $publicSig->id)
+                );
             }
 
             $nextStep = $this->workflows->findNextStep($instance->workflow_id, $step->step_order);
@@ -274,7 +284,7 @@ class WorkflowApprovalEngine
                 'current_step_order'  => $rejectedStepOrder,
             ]);
 
-            $this->notifications->notifyApprovalPending($document, $rejectedApproval->role_id);
+            $this->notifications->notifyApprovalPending($document, $rejectedApproval->role_id, isResubmission: true);
 
             Log::info('dokumen_disubmit_ulang', [
                 'document_id'       => $document->id,
@@ -284,6 +294,40 @@ class WorkflowApprovalEngine
 
             return $instance;
         });
+    }
+
+    /**
+     * Tempel QR code (link verifikasi) + teks jabatan & nama ke slot tanda tangan
+     * milik step_order ini, kalau dokumen punya pemetaan signature_slots untuk step ini.
+     */
+    private function embedSlotForStep(Document $document, int $stepOrder, string $jabatan, string $nama, string $verificationUrl): void
+    {
+        $document->refresh();
+        $signatureSlots = $document->signature_slots;
+
+        if (! $signatureSlots) {
+            return;
+        }
+
+        $slot = collect($signatureSlots['slots'])->firstWhere('step_order', $stepOrder);
+        if (! $slot) {
+            return;
+        }
+
+        $document->loadMissing('attachments');
+        $attachment = $document->attachments->first();
+        if (! $attachment) {
+            return;
+        }
+
+        $this->signatureSlots->embedSlot(
+            Storage::path($attachment->file_path),
+            $signatureSlots,
+            $slot,
+            $jabatan,
+            $nama,
+            $verificationUrl
+        );
     }
 
     private function completeDocument(Document $document, DocumentWorkflowInstance $instance): void
