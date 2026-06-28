@@ -72,8 +72,9 @@
                     <a class="flex gap-3 rounded-lg border-b border-gray-100 p-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
                        href="{{ $notification->document_id ? route('app.documents.show', $notification->document_id) : '#' }}"
                        @click="closeDropdown()">
-                        <span class="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                            <svg data-feather="bell" width="14" height="14"></svg>
+                        @php($isRevision = $notification->type === 'APPROVAL_PENDING_REVISION')
+                        <span class="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-full {{ $isRevision ? 'bg-warning-100 text-warning-600 dark:bg-warning-500/20 dark:text-warning-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' }}">
+                            <svg data-feather="{{ $isRevision ? 'refresh-cw' : 'bell' }}" width="14" height="14"></svg>
                         </span>
                         <span class="block">
                             <span class="mb-1 block text-theme-sm text-gray-700 dark:text-gray-200">{{ $notification->message }}</span>

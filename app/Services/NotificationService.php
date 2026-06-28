@@ -20,8 +20,18 @@ class NotificationService
         );
     }
 
-    public function notifyApprovalPending(Document $document, string $nextRoleId): void
+    public function notifyApprovalPending(Document $document, string $nextRoleId, bool $isResubmission = false): void
     {
+        if ($isResubmission) {
+            $this->notifyRoleUsers(
+                $document,
+                $nextRoleId,
+                'APPROVAL_PENDING_REVISION',
+                sprintf('🔄 REVISI — Dokumen "%s" telah diperbaiki dan menunggu approval ulang pada tahap Anda.', $document->title)
+            );
+            return;
+        }
+
         $this->notifyRoleUsers(
             $document,
             $nextRoleId,

@@ -14,7 +14,12 @@ class DocumentRepository implements DocumentRepositoryInterface
 
     public function paginateForUser(User $user, array $filters = [], int $perPage = 10, string $pageName = 'page'): LengthAwarePaginator
     {
-        $query = Document::query()->with(['documentType', 'organization', 'creator']);
+        $query = Document::query()
+            ->with([
+                'documentType', 'organization', 'creator',
+                'approvals' => fn ($q) => $q->where('status', 'REJECTED')->orderByDesc('created_at'),
+            ])
+            ->withExists(['approvals as has_been_rejected' => fn ($q) => $q->where('status', 'REJECTED')]);
 
         if (! $this->hasGlobalAccess($user)) {
             $organizationIds = $this->organizationIds($user);

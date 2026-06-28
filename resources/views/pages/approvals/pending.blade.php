@@ -59,7 +59,12 @@
                         <div class="space-y-3 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.02]">
                             <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-800">
                                 <p class="text-xs uppercase text-gray-500">Dokumen</p>
-                                <p class="mt-1 text-xs font-medium text-gray-800 dark:text-white/90">{{ $doc->title }}</p>
+                                <p class="mt-1 text-xs font-medium text-gray-800 dark:text-white/90">
+                                    {{ $doc->title }}
+                                    @if($doc->has_been_rejected)
+                                        <span class="ml-1 inline-flex items-center rounded-full bg-warning-100 px-2 py-0.5 text-[9px] font-semibold text-warning-700 dark:bg-warning-500/20 dark:text-warning-400">🔄 Revisi</span>
+                                    @endif
+                                </p>
                                 <p class="mt-0.5 text-[11px] text-gray-500">{{ $doc->organization->name ?? '-' }}</p>
                             </div>
 
@@ -288,6 +293,11 @@
                                             {{ $approvalStatus === 'APPROVED' ? 'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-300' : ($approvalStatus === 'REJECTED' ? 'bg-error-100 text-error-700 dark:bg-error-500/20 dark:text-error-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300') }}">
                                             {{ $approvalStatus }}
                                         </span>
+                                        @if($approvalStatus === 'REJECTED' && $approval->notes)
+                                            <p class="mt-1 max-w-[220px] whitespace-pre-line text-xs text-error-600 dark:text-error-400">
+                                                <span class="font-medium">Catatan:</span> {{ $approval->notes }}
+                                            </p>
+                                        @endif
                                     </td>
                                     <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300">{{ optional($approval->approved_at)->format('d M Y H:i') }}</td>
                                     <td class="px-3 py-2">

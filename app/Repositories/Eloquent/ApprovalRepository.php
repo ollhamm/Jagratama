@@ -19,7 +19,12 @@ class ApprovalRepository implements ApprovalRepositoryInterface
         $userRoleIds = $user->userRoles()->pluck('role_id')->all();
 
         $query = DocumentApproval::query()
-            ->with(['document.documentType', 'document.organization', 'workflowStep.role', 'approver'])
+            ->with([
+                'document' => fn ($q) => $q->with(['documentType', 'organization'])
+                    ->withExists(['approvals as has_been_rejected' => fn ($q2) => $q2->where('status', 'REJECTED')]),
+                'workflowStep.role',
+                'approver',
+            ])
             ->where('status', ApprovalStatus::PENDING)
             ->whereExists(function ($q) {
                 $q->select(DB::raw(1))

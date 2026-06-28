@@ -52,7 +52,12 @@
                 <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
                     @forelse($documents as $document)
                         <tr class="bg-white transition-colors hover:bg-gray-50 dark:bg-transparent dark:hover:bg-white/5">
-                            <td class="px-3 py-2 text-sm font-medium text-gray-800 dark:text-white/90">{{ $document->title }}</td>
+                            <td class="px-3 py-2 text-sm font-medium text-gray-800 dark:text-white/90">
+                                {{ $document->title }}
+                                @if($document->has_been_rejected)
+                                    <span class="ml-1 inline-flex items-center rounded-full bg-warning-100 px-2 py-0.5 text-[10px] font-semibold text-warning-700 dark:bg-warning-500/20 dark:text-warning-400">🔄 Revisi</span>
+                                @endif
+                            </td>
                             <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300">{{ $document->documentType->code ?? '-' }}</td>
                             <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300">{{ $document->organization->name ?? '-' }}</td>
                             <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300">
@@ -60,6 +65,11 @@
                                 <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold {{ in_array($statusValue, ['COMPLETED', 'APPROVED']) ? 'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-300' : (in_array($statusValue, ['REJECTED']) ? 'bg-error-100 text-error-700 dark:bg-error-500/20 dark:text-error-300' : 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300') }}">
                                     {{ $statusValue }}
                                 </span>
+                                @if($statusValue === 'REJECTED' && $document->approvals->first()?->notes)
+                                    <p class="mt-1 max-w-[220px] whitespace-pre-line text-xs text-error-600 dark:text-error-400">
+                                        <span class="font-medium">Catatan:</span> {{ $document->approvals->first()->notes }}
+                                    </p>
+                                @endif
                             </td>
                             <td class="px-3 py-2 text-sm">
                                 <div class="flex items-center gap-3">

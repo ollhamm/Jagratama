@@ -404,8 +404,18 @@
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
             <div class="flex items-start justify-between gap-4">
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">{{ $document->title }}</h3>
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">
+                        {{ $document->title }}
+                        @if($rejectHistory->isNotEmpty())
+                            <span class="ml-1 inline-flex items-center rounded-full bg-warning-100 px-2.5 py-0.5 text-xs font-semibold text-warning-700 dark:bg-warning-500/20 dark:text-warning-400">🔄 Revisi</span>
+                        @endif
+                    </h3>
                     <p class="mt-1 text-sm text-gray-500">Status: <span class="font-medium text-gray-700 dark:text-gray-300">{{ $currentStatus }}</span></p>
+                    @if($currentStatus === 'REJECTED' && $rejectHistory->last()?->notes)
+                        <p class="mt-2 max-w-xl whitespace-pre-line rounded-lg bg-error-50 px-3 py-2 text-sm text-error-700 dark:bg-error-500/10 dark:text-error-400">
+                            <span class="font-medium">Catatan:</span> {{ $rejectHistory->last()->notes }}
+                        </p>
+                    @endif
                 </div>
             </div>
 
