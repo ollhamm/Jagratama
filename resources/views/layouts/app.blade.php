@@ -15,6 +15,10 @@
     <!-- Select2 -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css">
     <style>
+        /* Sembunyikan elemen ber-x-cloak sebelum Alpine.js selesai init —
+           tanpa rule ini, modal/elemen x-show akan flash muncul sekejap saat page load. */
+        [x-cloak] { display: none !important; }
+
         /* ===== Select2 — Tailwind theme override ===== */
         .select2-container { width: 100% !important; }
 
@@ -194,7 +198,8 @@
             }
         })();
     </script>
-    
+
+    @stack('styles')
 </head>
 
 <body

@@ -49,49 +49,6 @@
                 title="Dokumen Final">
             </iframe>
         </div>
-
-        {{-- Tanda tangan --}}
-        @if($submitterSig || $approvalSignatures->isNotEmpty())
-        <div class="rounded-2xl border border-gray-200 bg-white p-6">
-            <h2 class="mb-4 text-sm font-semibold text-gray-700">Tanda Tangan Persetujuan</h2>
-            <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-
-                {{-- TTD Pengaju --}}
-                @if($submitterSig)
-                    <div class="rounded-xl border border-brand-100 bg-brand-50/30 p-3 text-center">
-                        @if($submitterSig['public_sig_id'])
-                            <div class="pub-sig-qr mx-auto mb-2"
-                                data-url="{{ route('public.signature.show', $submitterSig['public_sig_id']) }}"
-                                style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;">
-                            </div>
-                            <p class="text-[10px] text-gray-400 mb-1">Scan untuk verifikasi</p>
-                        @endif
-                        <p class="text-xs font-semibold text-gray-700">Pengaju</p>
-                        <p class="text-[11px] text-gray-500">{{ $submitterSig['name'] }}</p>
-                    </div>
-                @endif
-
-                {{-- TTD Approval --}}
-                @foreach($approvalSignatures as $item)
-                    <div class="rounded-xl border border-gray-200 p-3 text-center">
-                        @if($item['public_sig_id'])
-                            <div class="pub-sig-qr mx-auto mb-2"
-                                data-url="{{ route('public.signature.show', $item['public_sig_id']) }}"
-                                data-role="{{ $item['role_code'] }}"
-                                style="width:80px;height:80px;display:flex;align-items:center;justify-content:center;">
-                            </div>
-                            <p class="text-[10px] text-gray-400 mb-1">Scan untuk verifikasi</p>
-                        @endif
-                        <p class="text-xs font-semibold text-gray-700">{{ $item['role_name'] }}</p>
-                        <p class="text-[11px] text-gray-500">{{ $item['approver_name'] }}</p>
-                        <p class="text-[10px] text-gray-400">{{ $item['signed_at'] }}</p>
-                    </div>
-                @endforeach
-
-            </div>
-        </div>
-        @endif
-
     </main>
 
     <footer class="mt-10 border-t border-gray-200 bg-white py-4 text-center text-xs text-gray-400">

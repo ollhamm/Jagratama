@@ -9,6 +9,7 @@ use App\Http\Controllers\PublicSignatureController;
 use App\Http\Controllers\SignatureController;
 use App\Http\Controllers\Web\ApprovalPageController;
 use App\Http\Controllers\Web\DocumentPageController;
+use App\Http\Controllers\Web\GuidePageController;
 use App\Http\Controllers\Web\UserManagementPageController;
 use Illuminate\Support\Facades\Route;
 
@@ -28,6 +29,10 @@ Route::middleware(['auth', 'active'])->group(function () use ($pengajuRoles) {
 
     // Dokumen index — semua role yang sudah login bisa lihat dokumen miliknya/lingkupnya
     Route::get('/app/documents', [DocumentPageController::class, 'index'])->name('app.documents.index');
+
+    // Dokumen Resmi — daftar dokumen yang sudah publikasi (scope per role di service).
+    // Wajib didaftarkan SEBELUM /app/documents/{id} supaya tidak ditangkap sebagai parameter {id}.
+    Route::get('/app/documents/published', [DocumentPageController::class, 'published'])->name('app.documents.published');
 
     // Blade UI routes
     Route::middleware('role:'.$pengajuRoles)->group(function () {
@@ -58,7 +63,13 @@ Route::middleware(['auth', 'active'])->group(function () use ($pengajuRoles) {
         Route::get('/app/users/{id}/edit', [UserManagementPageController::class, 'edit'])->name('app.users.edit');
         Route::put('/app/users/{id}', [UserManagementPageController::class, 'update'])->name('app.users.update');
         Route::delete('/app/users/{id}', [UserManagementPageController::class, 'destroy'])->name('app.users.destroy');
+
+        Route::get('/app/guides', [GuidePageController::class, 'manage'])->name('app.guides.manage');
+        Route::put('/app/guides/{key}', [GuidePageController::class, 'update'])->name('app.guides.update');
     });
+
+    // Panduan penggunaan — tombol fixed di sidebar, semua role yang sudah login bisa akses.
+    Route::get('/app/guide', [GuidePageController::class, 'show'])->name('app.guide.show');
 
     // REST API endpoints (session-based + CSRF protected)
     Route::get('/documents', [DocumentController::class, 'index']);

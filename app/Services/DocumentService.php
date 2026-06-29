@@ -7,6 +7,7 @@ use App\Enums\DocumentStatus;
 use App\Models\Document;
 use App\Models\DocumentApproval;
 use App\Models\PublicSignature;
+use App\Models\Signature;
 use App\Models\User;
 use App\Repositories\Contracts\DocumentRepositoryInterface;
 use App\Repositories\Contracts\WorkflowRepositoryInterface;
@@ -45,9 +46,85 @@ class DocumentService
         return $this->documents->paginateCreatedBy($user, $filters, $perPage, $pageName);
     }
 
+    public function paginatePublished(User $user, array $filters, string $pageName = 'page'): LengthAwarePaginator
+    {
+        $perPage = (int) ($filters['per_page'] ?? 10);
+        return $this->documents->paginatePublishedForUser($user, $filters, $perPage, $pageName);
+    }
+
     public function findForUser(string $id, User $user): ?Document
     {
         return $this->documents->findByIdForUser($id, $user);
+    }
+
+    /**
+     * Ambil daftar tanda tangan terakhir yang pernah dipakai user ini di dokumen LAIN —
+     * sebagai submitter (pengaju) dan/atau sebagai approver. Dipakai untuk tab
+     * "Tanda Tangan Terakhir" di modal pad tanda tangan: ditampilkan sebagai daftar
+     * gambar yang bisa langsung diklik, supaya user tidak perlu menggambar/upload
+     * ulang kalau sudah pernah TTD sebelumnya.
+     *
+     * @return array{submitter: array<int, array{value: string, label: string}>, approval: array<int, array{value: string, label: string}>}
+     */
+    public function getRecentSignatures(User $user, ?string $excludeDocumentId = null, int $limit = 6): array
+    {
+        $submitterRows = Document::query()
+            ->where('created_by', $user->id)
+            ->whereNotNull('submitter_signature')
+            ->when($excludeDocumentId, fn ($q) => $q->where('id', '!=', $excludeDocumentId))
+            ->latest('submitted_at')
+            ->limit($limit * 3)
+            ->get(['title', 'submitted_at', 'submitter_signature']);
+
+        $submitterSignatures = [];
+        $seen = [];
+        foreach ($submitterRows as $row) {
+            if (in_array($row->submitter_signature, $seen, true)) {
+                continue;
+            }
+            $seen[] = $row->submitter_signature;
+            $submitterSignatures[] = [
+                'value' => $row->submitter_signature,
+                'label' => sprintf('%s — %s', $row->title, optional($row->submitted_at)->format('d/m/Y H:i') ?? '-'),
+            ];
+            if (count($submitterSignatures) >= $limit) {
+                break;
+            }
+        }
+
+        $approvalRows = Signature::query()
+            ->whereHas('documentApproval', function ($q) use ($user, $excludeDocumentId) {
+                $q->where('approved_by', $user->id);
+                if ($excludeDocumentId) {
+                    $q->where('document_id', '!=', $excludeDocumentId);
+                }
+            })
+            ->with('documentApproval.document')
+            ->latest('signed_at')
+            ->limit($limit * 3)
+            ->get();
+
+        $approvalSignatures = [];
+        $seenApproval = [];
+        foreach ($approvalRows as $signature) {
+            if (in_array($signature->signature_value, $seenApproval, true)) {
+                continue;
+            }
+            $seenApproval[] = $signature->signature_value;
+            $docTitle = $signature->documentApproval->document->title ?? '-';
+            $approvalSignatures[] = [
+                'value' => $signature->signature_value,
+                'label' => sprintf('%s — %s', $docTitle, optional($signature->signed_at)->format('d/m/Y H:i') ?? '-'),
+            ];
+            if (count($approvalSignatures) >= $limit) {
+                break;
+            }
+        }
+
+        return [
+            'submitter' => $submitterSignatures,
+            'approval'  => $approvalSignatures,
+        ];
     }
 
     public function create(User $user, array $payload): Document
@@ -328,7 +405,7 @@ class DocumentService
     /**
      * Tempel QR + teks untuk satu step_order tertentu, kalau memang termasuk slot wajib TTD.
      */
-    private function embedApproverSlot(Document $document, int $stepOrder, string $jabatan, string $nama, string $verificationUrl): void
+    private function embedApproverSlot(Document $document, int $stepOrder, string $jabatan, string $nama, string $verificationUrl, ?string $roleCode = null): void
     {
         $document->refresh();
         $signatureSlots = $document->signature_slots;
@@ -355,7 +432,8 @@ class DocumentService
             $slot,
             $jabatan,
             $nama,
-            $verificationUrl
+            $verificationUrl,
+            $roleCode
         );
     }
 
@@ -385,7 +463,7 @@ class DocumentService
             $nama = $approval->approver->name ?? '-';
             $verificationUrl = route('public.signature.show', $signature->public_signature_id);
 
-            $this->embedApproverSlot($document, $approval->step_order, $jabatan, $nama, $verificationUrl);
+            $this->embedApproverSlot($document, $approval->step_order, $jabatan, $nama, $verificationUrl, $approval->workflowStep->role->code ?? null);
         }
 
         // Pengaju juga perlu ditempel ulang (slot pertama, sentinel step_order = 0).

@@ -14,6 +14,35 @@
             ->whereNull('read_at')
             ->count()
         : 0;
+
+    // Tujuan link tiap notifikasi: kalau user kebagian approval pending untuk dokumen ini
+    // (dia approver), arahkan ke antrian approval. Kalau tidak (termasuk Pengaju), ke detail dokumen.
+    $isAdmin = $user
+        ? $user->userRoles()->whereHas('role', fn ($q) => $q->where('code', 'ADMIN'))->exists()
+        : false;
+    $userRoleIds = $user ? $user->userRoles()->pluck('role_id')->all() : [];
+
+    $notificationLinks = $notifications->mapWithKeys(function ($notification) use ($isAdmin, $userRoleIds) {
+        $url = $notification->document_id
+            ? route('app.documents.show', $notification->document_id)
+            : '#';
+
+        if ($notification->document_id) {
+            $pendingQuery = \App\Models\DocumentApproval::query()
+                ->where('document_id', $notification->document_id)
+                ->where('status', 'PENDING');
+
+            if (! $isAdmin) {
+                $pendingQuery->whereIn('role_id', $userRoleIds);
+            }
+
+            if ($pendingQuery->exists()) {
+                $url = route('app.approvals.pending');
+            }
+        }
+
+        return [$notification->id => $url];
+    });
 @endphp
 
 <div class="relative" x-data="{
@@ -70,7 +99,7 @@
             @forelse ($notifications as $notification)
                 <li>
                     <a class="flex gap-3 rounded-lg border-b border-gray-100 p-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-                       href="{{ $notification->document_id ? route('app.documents.show', $notification->document_id) : '#' }}"
+                       href="{{ $notificationLinks[$notification->id] ?? '#' }}"
                        @click="closeDropdown()">
                         @php($isRevision = $notification->type === 'APPROVAL_PENDING_REVISION')
                         <span class="mt-1 inline-flex h-8 w-8 items-center justify-center rounded-full {{ $isRevision ? 'bg-warning-100 text-warning-600 dark:bg-warning-500/20 dark:text-warning-400' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' }}">

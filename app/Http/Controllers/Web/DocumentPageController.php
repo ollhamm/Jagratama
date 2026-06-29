@@ -46,6 +46,21 @@ class DocumentPageController extends Controller
         ]);
     }
 
+    public function published(\Illuminate\Http\Request $request): View
+    {
+        $filters = [
+            'search' => $request->query('search'),
+            'per_page' => $request->query('per_page') ?? 10,
+        ];
+
+        $documents = $this->documents->paginatePublished($request->user(), $filters, 'published_page');
+
+        return view('pages.documents.published', [
+            'title' => 'Dokumen Resmi',
+            'documents' => $documents,
+        ]);
+    }
+
     public function create(): View
     {
         $user    = auth()->user();
@@ -205,6 +220,8 @@ class DocumentPageController extends Controller
             && ! $document->published_at
             && ($isAdmin || $this->documents->isLastApprover($document, $authUser));
 
+        $recentSignatures = $this->documents->getRecentSignatures($authUser, $document->id);
+
         return view('pages.documents.show', [
             'title' => 'Konfirmasi Dokumen',
             'document' => $document,
@@ -215,6 +232,8 @@ class DocumentPageController extends Controller
             'approvalSignaturePayload' => $approvalSignaturePayload,
             'suggestedApprovalSignatureValue' => $suggestedApprovalSignatureValue,
             'canPublish' => $canPublish,
+            'recentSubmitterSignatures' => $recentSignatures['submitter'],
+            'recentApprovalSignatures' => $recentSignatures['approval'],
         ]);
     }
 

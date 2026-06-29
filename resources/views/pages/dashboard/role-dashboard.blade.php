@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-    <x-common.page-breadcrumb pageTitle="{{ $title ?? 'Dashboard' }}" />
+    <x-common.page-breadcrumb pageTitle="Selamat Datang, {{ $user->name }}!" />
 
     <div class="mb-5 flex flex-wrap gap-2">
         <a href="{{ route('app.documents.index') }}" class="rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600">Kelola Dokumen</a>
@@ -10,170 +10,120 @@
         @else
             <a href="{{ route('app.approvals.pending') }}" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Halaman Approval</a>
         @endif
+        <a href="{{ route('app.documents.published') }}" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-300">Dokumen Resmi</a>
     </div>
 
-    @if ($mode === 'pengaju')
-        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
-            <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Pengajuan Saya</h3>
-                <form method="GET" action="{{ route('dashboard') }}" class="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center">
-                    <input
-                        type="text"
-                        name="my_search"
-                        value="{{ request('my_search') }}"
-                        placeholder="Cari judul dokumen"
-                        class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90 sm:w-44"
-                    />
-                    <div class="w-full sm:w-40">
-                        <select name="my_status" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90">
-                            <option value="">Semua Status</option>
-                            @foreach (['DRAFT', 'SUBMITTED', 'IN_REVIEW', 'REJECTED', 'APPROVED', 'COMPLETED'] as $status)
-                                <option value="{{ $status }}" @selected(request('my_status') === $status)>{{ $status }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <button class="h-10 w-full rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Cari</button>
-                </form>
-            </div>
+    {{-- ===== SUMMARY CARDS ===== --}}
+    <div class="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        @if ($mode === 'pengaju')
+            <x-dashboard.stat-card label="Total Pengajuan" :value="$summary['total']" icon="file-text" color="brand" />
+            <x-dashboard.stat-card label="Disetujui" :value="$summary['completed']" icon="check-circle" color="success" />
+            <x-dashboard.stat-card label="Ditolak" :value="$summary['rejected']" icon="x-circle" color="error" />
+            <x-dashboard.stat-card label="Dalam Proses" :value="$summary['in_review']" icon="clock" color="warning" />
+        @elseif ($mode === 'approver')
+            <x-dashboard.stat-card label="Menunggu Approval Saya" :value="$summary['pending']" icon="clock" color="warning" />
+            <x-dashboard.stat-card label="Sudah Disetujui" :value="$summary['approved']" icon="check-circle" color="success" />
+            <x-dashboard.stat-card label="Sudah Ditolak" :value="$summary['rejected']" icon="x-circle" color="error" />
+            <x-dashboard.stat-card label="Notifikasi Belum Dibaca" :value="\App\Models\SystemNotification::where('user_id', $user->id)->whereNull('read_at')->count()" icon="bell" color="brand" />
+        @else
+            <x-dashboard.stat-card label="Total Dokumen" :value="$summary['total_documents']" icon="file-text" color="brand" />
+            <x-dashboard.stat-card label="User Aktif" :value="$summary['active_users']" icon="users" color="success" />
+            <x-dashboard.stat-card label="Menunggu Approval" :value="$summary['pending_approvals']" icon="clock" color="warning" />
+            <x-dashboard.stat-card label="Sudah Dipublikasikan" :value="$summary['published']" icon="check-circle" color="success" />
+        @endif
+    </div>
 
-            <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full">
-                        <thead class="bg-gray-50 dark:bg-gray-800/70">
-                            <tr>
-                                <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Judul</th>
-                                <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Tipe</th>
-                                <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Status</th>
-                                <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Step</th>
-                                <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Dibuat</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                            @forelse($mySubmissions as $item)
-                                <tr class="bg-white transition-colors hover:bg-gray-50 dark:bg-transparent dark:hover:bg-white/5">
-                                    <td class="px-3 py-2 text-sm font-medium text-gray-800 dark:text-white/90 whitespace-nowrap">{{ $item->title }}</td>
-                                    <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ $item->documentType->code ?? '-' }}</td>
-                                    <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                                        @php($statusValue = $item->current_status->value ?? $item->current_status)
-                                        <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold {{ in_array($statusValue, ['COMPLETED', 'APPROVED']) ? 'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-300' : (in_array($statusValue, ['REJECTED']) ? 'bg-error-100 text-error-700 dark:bg-error-500/20 dark:text-error-300' : 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300') }}">
-                                            {{ $statusValue }}
-                                        </span>
-                                    </td>
-                                    <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ $item->current_step_order }}</td>
-                                    <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ optional($item->created_at)->format('d M Y H:i') }}</td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="5" class="px-3 py-8 text-center text-sm text-gray-500">Belum ada pengajuan.</td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+    {{-- ===== AKTIVITAS TERBARU ===== --}}
+    <div class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
 
-            <div class="mt-4">{{ $mySubmissions->appends(request()->query())->links() }}</div>
+        {{-- Notifikasi Terbaru --}}
+        <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+            <h3 class="mb-3 text-base font-semibold text-gray-800 dark:text-white/90">Notifikasi Terbaru</h3>
+            <div class="space-y-3">
+                @forelse($recentNotifications as $notif)
+                    <a href="{{ $notif->document_id ? route('app.documents.show', $notif->document_id) : '#' }}"
+                        class="block rounded-lg border border-gray-100 p-2 text-xs hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/5">
+                        <p class="text-gray-700 dark:text-gray-300">{{ $notif->message }}</p>
+                        <p class="mt-1 text-[10px] text-gray-400">{{ $notif->created_at?->diffForHumans() }}</p>
+                    </a>
+                @empty
+                    <p class="text-sm text-gray-500">Belum ada notifikasi.</p>
+                @endforelse
+            </div>
         </div>
-    @endif
 
-    @if ($mode === 'approver')
-        <div class="grid grid-cols-1 gap-6 xl:grid-cols-2">
-
-            {{-- Menunggu Approval --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
-                <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Menunggu Approval</h3>
-                    <form method="GET" action="{{ route('dashboard') }}" class="flex flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center">
-                        <input
-                            type="text"
-                            name="pending_search"
-                            value="{{ request('pending_search') }}"
-                            placeholder="Cari dokumen"
-                            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90 sm:w-44"
-                        />
-                        <button class="h-10 w-full rounded-lg bg-brand-500 px-4 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Cari</button>
-                    </form>
+        @if ($mode === 'pengaju')
+            {{-- 5 Pengajuan Terakhir --}}
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] xl:col-span-2">
+                <h3 class="mb-3 text-base font-semibold text-gray-800 dark:text-white/90">5 Pengajuan Terakhir</h3>
+                <div class="space-y-2">
+                    @forelse($recentSubmissions as $doc)
+                        @php($statusValue = $doc->current_status->value ?? $doc->current_status)
+                        <a href="{{ route('app.documents.show', $doc->id) }}" class="flex items-center justify-between rounded-lg border border-gray-100 p-2 text-sm hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/5">
+                            <span class="font-medium text-gray-800 dark:text-white/90">{{ $doc->title }}</span>
+                            <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold {{ in_array($statusValue, ['COMPLETED', 'APPROVED']) ? 'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-300' : (in_array($statusValue, ['REJECTED']) ? 'bg-error-100 text-error-700 dark:bg-error-500/20 dark:text-error-300' : 'bg-brand-100 text-brand-700 dark:bg-brand-500/20 dark:text-brand-300') }}">{{ $statusValue }}</span>
+                        </a>
+                    @empty
+                        <p class="text-sm text-gray-500">Belum ada pengajuan.</p>
+                    @endforelse
                 </div>
-
-                <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full">
-                            <thead class="bg-gray-50 dark:bg-gray-800/70">
-                                <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Dokumen</th>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Role</th>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Step</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                                @forelse($pendingApprovals as $item)
-                                    <tr class="bg-white transition-colors hover:bg-gray-50 dark:bg-transparent dark:hover:bg-white/5">
-                                        <td class="px-3 py-2 text-sm font-medium text-gray-800 dark:text-white/90 whitespace-nowrap">{{ $item->document->title ?? '-' }}</td>
-                                        <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ $item->workflowStep->role->name ?? '-' }}</td>
-                                        <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ $item->step_order }}</td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="3" class="px-3 py-8 text-center text-sm text-gray-500">Tidak ada approval pending.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
+            </div>
+        @else
+            {{-- Approve/Reject Terbaru (oleh saya) --}}
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] xl:col-span-2">
+                <h3 class="mb-3 text-base font-semibold text-gray-800 dark:text-white/90">Approve / Reject Terbaru</h3>
+                <div class="space-y-2">
+                    @forelse($recentApprovals as $approval)
+                        @php($approvalStatus = $approval->status->value ?? $approval->status)
+                        <a href="{{ route('app.documents.show', $approval->document_id) }}" class="flex items-center justify-between rounded-lg border border-gray-100 p-2 text-sm hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/5">
+                            <span class="font-medium text-gray-800 dark:text-white/90">{{ $approval->document->title ?? '-' }}</span>
+                            <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $approvalStatus === 'APPROVED' ? 'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-300' : 'bg-error-100 text-error-700 dark:bg-error-500/20 dark:text-error-300' }}">{{ $approvalStatus }}</span>
+                        </a>
+                    @empty
+                        <p class="text-sm text-gray-500">Belum ada riwayat approval.</p>
+                    @endforelse
                 </div>
-                <div class="mt-4">{{ $pendingApprovals->appends(request()->query())->links() }}</div>
+            </div>
+        @endif
+    </div>
+
+    @if ($mode === 'admin')
+        <div class="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+            {{-- 5 Pengajuan Terakhir (system-wide) --}}
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <h3 class="mb-3 text-base font-semibold text-gray-800 dark:text-white/90">5 Pengajuan Terakhir</h3>
+                <div class="space-y-2">
+                    @forelse($recentSubmissions as $doc)
+                        <a href="{{ route('app.documents.show', $doc->id) }}" class="flex items-center justify-between rounded-lg border border-gray-100 p-2 text-sm hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/5">
+                            <span>
+                                <span class="font-medium text-gray-800 dark:text-white/90">{{ $doc->title }}</span>
+                                <span class="block text-[11px] text-gray-400">{{ $doc->creator->name ?? '-' }}</span>
+                            </span>
+                            <span class="text-[11px] text-gray-400">{{ optional($doc->created_at)->format('d/m H:i') }}</span>
+                        </a>
+                    @empty
+                        <p class="text-sm text-gray-500">Belum ada pengajuan.</p>
+                    @endforelse
+                </div>
             </div>
 
-            {{-- Riwayat Approval --}}
-            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
-                <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">Riwayat Approval</h3>
-                    <form method="GET" action="{{ route('dashboard') }}" class="flex flex-wrap items-center gap-2">
-                        <input
-                            type="text"
-                            name="history_search"
-                            value="{{ request('history_search') }}"
-                            placeholder="Cari riwayat"
-                            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-700 outline-hidden focus:border-brand-500 dark:border-gray-700 dark:text-white/90 sm:w-44"
-                        />
-                        <button class="w-full rounded-lg bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:bg-brand-600 sm:w-auto">Cari</button>
-                    </form>
+            {{-- 5 Dokumen Dipublikasikan Terakhir --}}
+            <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+                <h3 class="mb-3 text-base font-semibold text-gray-800 dark:text-white/90">Publish Terbaru</h3>
+                <div class="space-y-2">
+                    @forelse($recentPublished as $doc)
+                        <a href="{{ route('public.document.show', $doc->id) }}" target="_blank" class="flex items-center justify-between rounded-lg border border-gray-100 p-2 text-sm hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/5">
+                            <span>
+                                <span class="font-medium text-gray-800 dark:text-white/90">{{ $doc->title }}</span>
+                                <span class="block text-[11px] text-gray-400">{{ $doc->creator->name ?? '-' }}</span>
+                            </span>
+                            <span class="text-[11px] text-gray-400">{{ optional($doc->published_at)->format('d/m H:i') }}</span>
+                        </a>
+                    @empty
+                        <p class="text-sm text-gray-500">Belum ada dokumen yang dipublikasikan.</p>
+                    @endforelse
                 </div>
-
-                <div class="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-800">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full">
-                            <thead class="bg-gray-50 dark:bg-gray-800/70">
-                                <tr>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Dokumen</th>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Status</th>
-                                    <th class="px-3 py-2 text-left text-xs font-semibold uppercase text-gray-500">Tanggal</th>
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
-                                @forelse($approvalHistory as $item)
-                                    <tr class="bg-white transition-colors hover:bg-gray-50 dark:bg-transparent dark:hover:bg-white/5">
-                                        <td class="px-3 py-2 text-sm font-medium text-gray-800 dark:text-white/90 whitespace-nowrap">{{ $item->document->title ?? '-' }}</td>
-                                        <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">
-                                            @php($approvalStatus = $item->status->value ?? $item->status)
-                                            <span class="inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold {{ $approvalStatus === 'APPROVED' ? 'bg-success-100 text-success-700 dark:bg-success-500/20 dark:text-success-300' : ($approvalStatus === 'REJECTED' ? 'bg-error-100 text-error-700 dark:bg-error-500/20 dark:text-error-300' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300') }}">
-                                                {{ $approvalStatus }}
-                                            </span>
-                                        </td>
-                                        <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300 whitespace-nowrap">{{ optional($item->approved_at)->format('d M Y H:i') }}</td>
-                                    </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="3" class="px-3 py-8 text-center text-sm text-gray-500">Belum ada riwayat approval.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-                <div class="mt-4">{{ $approvalHistory->appends(request()->query())->links() }}</div>
             </div>
-
         </div>
     @endif
 @endsection

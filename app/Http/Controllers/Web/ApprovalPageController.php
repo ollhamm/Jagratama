@@ -7,14 +7,17 @@ use App\Http\Requests\Approval\ApprovalIndexRequest;
 use App\Http\Requests\Approval\ApproveRequest;
 use App\Http\Requests\Approval\RejectRequest;
 use App\Services\ApprovalService;
+use App\Services\DocumentService;
 use DomainException;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\View\View;
 
 class ApprovalPageController extends Controller
 {
-    public function __construct(private readonly ApprovalService $approvals)
-    {
+    public function __construct(
+        private readonly ApprovalService $approvals,
+        private readonly DocumentService $documents,
+    ) {
     }
 
     public function pending(ApprovalIndexRequest $request): View
@@ -39,11 +42,17 @@ class ApprovalPageController extends Controller
             ]);
         }
 
+        $recentSignatures = $this->documents->getRecentSignatures(
+            $request->user(),
+            $activeApproval?->document_id
+        );
+
         return view('pages.approvals.pending', [
             'title'            => 'Approval Dokumen',
             'pendingApprovals' => $pendingApprovals,
             'historyApprovals' => $historyApprovals,
             'activeApproval'   => $activeApproval,
+            'recentApprovalSignatures' => $recentSignatures['approval'],
         ]);
     }
 

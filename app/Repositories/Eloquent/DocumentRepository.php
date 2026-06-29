@@ -66,6 +66,33 @@ class DocumentRepository implements DocumentRepositoryInterface
         return $query->latest('created_at')->paginate($perPage, ['*'], $pageName)->withQueryString();
     }
 
+    public function paginatePublishedForUser(User $user, array $filters = [], int $perPage = 10, string $pageName = 'page'): LengthAwarePaginator
+    {
+        $query = Document::query()
+            ->with([
+                'documentType', 'organization', 'creator',
+                'approvals.workflowStep.role', 'approvals.approver',
+            ])
+            ->whereNotNull('published_at');
+
+        if (! $this->isAdmin($user)) {
+            $query->where(function ($subQuery) use ($user) {
+                $subQuery->where('created_by', $user->id)
+                    ->orWhereHas('approvals', fn ($q) => $q->where('approved_by', $user->id)->where('status', 'APPROVED'));
+            });
+        }
+
+        if (! empty($filters['search'])) {
+            $search = trim((string) $filters['search']);
+            $query->where(function ($subQuery) use ($search) {
+                $subQuery->where('title', 'like', "%{$search}%")
+                    ->orWhereHas('creator', fn ($q) => $q->where('name', 'like', "%{$search}%"));
+            });
+        }
+
+        return $query->latest('published_at')->paginate($perPage, ['*'], $pageName)->withQueryString();
+    }
+
     public function findByIdForUser(string $id, User $user): ?Document
     {
         $query = Document::query()->with([

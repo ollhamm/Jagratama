@@ -393,13 +393,34 @@
             </div>
         @endif
 
+        @if($document->published_at)
+            <div class="rounded-2xl border border-success-200 bg-success-50 p-5 dark:border-success-800 dark:bg-success-500/10 sm:p-6">
+                <div class="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h4 class="text-base font-semibold text-success-800 dark:text-success-300">Dokumen Resmi Telah Dipublikasikan</h4>
+                        <p class="mt-1 text-sm text-success-700 dark:text-success-400">
+                            Dipublikasikan pada {{ $document->published_at->format('d/m/Y H:i') }}. Bagikan tautan atau QR ini sebagai dokumen resmi yang sah.
+                        </p>
+                        <a href="{{ route('public.document.show', $document->id) }}" target="_blank"
+                            class="mt-3 inline-flex items-center gap-2 rounded-lg bg-success-600 px-4 py-2 text-sm font-medium text-white hover:bg-success-700">
+                            Buka Dokumen Resmi
+                        </a>
+                    </div>
+                    <div class="flex flex-col items-center gap-1">
+                        <div id="publish-qr" data-url="{{ route('public.document.show', $document->id) }}"></div>
+                        <p class="text-[10px] text-gray-500">Scan untuk verifikasi</p>
+                    </div>
+                </div>
+            </div>
+        @endif
+
         <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">
                         {{ $document->title }}
                         @if($rejectHistory->isNotEmpty())
-                            <span class="ml-1 inline-flex items-center rounded-full bg-warning-100 px-2.5 py-0.5 text-xs font-semibold text-warning-700 dark:bg-warning-500/20 dark:text-warning-400">🔄 Revisi</span>
+                            <span class="ml-1 inline-flex items-center rounded-full bg-warning-100 px-2.5 py-0.5 text-xs font-semibold text-warning-700 dark:bg-warning-500/20 dark:text-warning-400">Revisi</span>
                         @endif
                     </h3>
                     <p class="mt-1 text-sm text-gray-500">Status: <span class="font-medium text-gray-700 dark:text-gray-300">{{ $currentStatus }}</span></p>
@@ -490,6 +511,9 @@
                 <button type="button" @click="sigTab='upload'"
                     :class="sigTab==='upload' ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'"
                     class="rounded-lg px-4 py-1.5 text-sm font-medium transition">Upload Gambar</button>
+                <button type="button" @click="sigTab='recent'"
+                    :class="sigTab==='recent' ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'"
+                    class="rounded-lg px-4 py-1.5 text-sm font-medium transition">Tanda Tangan Terakhir</button>
             </div>
             <div class="px-6 py-4">
                 <div x-show="sigTab === 'draw'">
@@ -515,13 +539,31 @@
                     <img id="submitter-sig-preview" src="#" alt="Preview"
                         class="hidden mx-auto max-h-40 rounded-xl border border-gray-200 bg-white">
                 </div>
+                <div x-show="sigTab === 'recent'" class="space-y-3">
+                    @if(count($recentSubmitterSignatures) > 0)
+                        <p class="text-xs text-gray-400">Klik salah satu tanda tangan untuk langsung dipakai.</p>
+                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                            @foreach($recentSubmitterSignatures as $sig)
+                                <button type="button" class="submitter-recent-sig-item group rounded-lg border-2 border-gray-200 p-2 text-left hover:border-brand-400 dark:border-gray-700"
+                                    data-value="{{ $sig['value'] }}">
+                                    <img src="{{ $sig['value'] }}" alt="Tanda Tangan" class="mx-auto max-h-20 w-full object-contain">
+                                    <p class="mt-1 truncate text-[10px] text-gray-500 group-hover:text-brand-600 dark:text-gray-400">{{ $sig['label'] }}</p>
+                                </button>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="flex h-32 items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 text-center text-sm text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                            Belum ada tanda tangan tersimpan dari dokumen sebelumnya.
+                        </div>
+                    @endif
+                </div>
             </div>
             <div class="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4 dark:border-gray-700">
                 <button type="button" id="close-submitter-sig-modal-cancel"
                     class="rounded-lg border border-gray-300 px-5 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">
                     Batal
                 </button>
-                <button type="button" id="confirm-submitter-sig"
+                <button type="button" id="confirm-submitter-sig" x-show="sigTab !== 'recent'"
                     class="rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600">
                     Gunakan Tanda Tangan
                 </button>
@@ -551,6 +593,9 @@
                 <button type="button" @click="sigTab='upload'"
                     :class="sigTab==='upload' ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'"
                     class="rounded-lg px-4 py-1.5 text-sm font-medium transition">Upload Gambar</button>
+                <button type="button" @click="sigTab='recent'"
+                    :class="sigTab==='recent' ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'"
+                    class="rounded-lg px-4 py-1.5 text-sm font-medium transition">Tanda Tangan Terakhir</button>
             </div>
 
             {{-- Body --}}
@@ -581,6 +626,26 @@
                     <img id="approval-sig-preview" src="#" alt="Preview"
                         class="hidden mx-auto max-h-40 rounded-xl border border-gray-200 bg-white">
                 </div>
+
+                {{-- Tanda Tangan Terakhir --}}
+                <div x-show="sigTab === 'recent'" class="space-y-3">
+                    @if(count($recentApprovalSignatures) > 0)
+                        <p class="text-xs text-gray-400">Klik salah satu tanda tangan untuk langsung dipakai.</p>
+                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                            @foreach($recentApprovalSignatures as $sig)
+                                <button type="button" class="approval-recent-sig-item group rounded-lg border-2 border-gray-200 p-2 text-left hover:border-brand-400 dark:border-gray-700"
+                                    data-value="{{ $sig['value'] }}">
+                                    <img src="{{ $sig['value'] }}" alt="Tanda Tangan" class="mx-auto max-h-20 w-full object-contain">
+                                    <p class="mt-1 truncate text-[10px] text-gray-500 group-hover:text-brand-600 dark:text-gray-400">{{ $sig['label'] }}</p>
+                                </button>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="flex h-32 items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 text-center text-sm text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                            Belum ada tanda tangan tersimpan dari approval sebelumnya.
+                        </div>
+                    @endif
+                </div>
             </div>
 
             {{-- Footer --}}
@@ -589,7 +654,7 @@
                     class="rounded-lg border border-gray-300 px-5 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800">
                     Batal
                 </button>
-                <button type="button" id="confirm-sig"
+                <button type="button" id="confirm-sig" x-show="sigTab !== 'recent'"
                     class="rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600">
                     Gunakan Tanda Tangan
                 </button>
@@ -625,6 +690,18 @@
         }
 
         document.addEventListener('DOMContentLoaded', function () {
+            const publishQrEl = document.getElementById('publish-qr');
+            if (publishQrEl && publishQrEl.dataset.url) {
+                new QRCode(publishQrEl, {
+                    text: publishQrEl.dataset.url,
+                    width: 120,
+                    height: 120,
+                    colorDark: '#101828',
+                    colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M,
+                });
+            }
+
             document.querySelectorAll('.sig-qr').forEach(function (el) {
                 const url      = el.dataset.url;
                 const role     = el.dataset.role || '';
@@ -747,6 +824,16 @@
                 reader.readAsDataURL(file);
             });
 
+            function applySubmitterSignature(value) {
+                if (!value) return;
+                hiddenInput.value = value;
+                thumb.src = value;
+                thumbWrap.classList.remove('hidden');
+                openBtn.textContent = 'Ubah Tanda Tangan';
+                sigError?.classList.add('hidden');
+                closeModal();
+            }
+
             confirmBtn?.addEventListener('click', () => {
                 let value = '';
                 if (previewImg && !previewImg.classList.contains('hidden') && previewImg.src && previewImg.src !== '#' && previewImg.src !== window.location.href) {
@@ -754,14 +841,13 @@
                 } else if (signaturePad && !signaturePad.isEmpty()) {
                     value = signaturePad.toDataURL('image/png');
                 }
-                if (!value) return;
+                applySubmitterSignature(value);
+            });
 
-                hiddenInput.value = value;
-                thumb.src = value;
-                thumbWrap.classList.remove('hidden');
-                openBtn.textContent = 'Ubah Tanda Tangan';
-                sigError?.classList.add('hidden');
-                closeModal();
+            document.querySelectorAll('.submitter-recent-sig-item').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    applySubmitterSignature(this.dataset.value);
+                });
             });
 
             submitForm?.addEventListener('submit', function (e) {
@@ -847,15 +933,8 @@
                 reader.readAsDataURL(file);
             });
 
-            confirmBtn?.addEventListener('click', function () {
-                let value = '';
-                if (previewImg && !previewImg.classList.contains('hidden') && previewImg.src && previewImg.src !== '#' && previewImg.src !== window.location.href) {
-                    value = previewImg.src;
-                } else if (signaturePad && !signaturePad.isEmpty()) {
-                    value = signaturePad.toDataURL('image/png');
-                }
+            function applyApprovalSignature(value) {
                 if (!value) return;
-
                 hiddenInput.value = value;
                 if (sigThumb && sigThumbWrap) {
                     sigThumb.src = value;
@@ -864,6 +943,22 @@
                 }
                 sigError?.classList.add('hidden');
                 closeModal();
+            }
+
+            confirmBtn?.addEventListener('click', function () {
+                let value = '';
+                if (previewImg && !previewImg.classList.contains('hidden') && previewImg.src && previewImg.src !== '#' && previewImg.src !== window.location.href) {
+                    value = previewImg.src;
+                } else if (signaturePad && !signaturePad.isEmpty()) {
+                    value = signaturePad.toDataURL('image/png');
+                }
+                applyApprovalSignature(value);
+            });
+
+            document.querySelectorAll('.approval-recent-sig-item').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    applyApprovalSignature(this.dataset.value);
+                });
             });
 
             approveForm?.addEventListener('submit', function (e) {

@@ -3,8 +3,7 @@
 @section('content')
     <x-common.page-breadcrumb pageTitle="Daftar Pengajuan" />
 
-    {{-- Modal Hapus Draft --}}
-    
+    <div x-data="{ deleteAction: '', deleteTitle: '' }">
 
     <div class="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
         @if(session('success'))
@@ -55,7 +54,7 @@
                             <td class="px-3 py-2 text-sm font-medium text-gray-800 dark:text-white/90">
                                 {{ $document->title }}
                                 @if($document->has_been_rejected)
-                                    <span class="ml-1 inline-flex items-center rounded-full bg-warning-100 px-2 py-0.5 text-[10px] font-semibold text-warning-700 dark:bg-warning-500/20 dark:text-warning-400">🔄 Revisi</span>
+                                    <span class="ml-1 inline-flex items-center rounded-full bg-warning-100 px-2 py-0.5 text-[10px] font-semibold text-warning-700 dark:bg-warning-500/20 dark:text-warning-400">Revisi</span>
                                 @endif
                             </td>
                             <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300">{{ $document->documentType->code ?? '-' }}</td>
@@ -78,7 +77,9 @@
                                         <button
                                             type="button"
                                             class="text-error-600 hover:text-error-700"
-                                            @click="$dispatch('open-delete-modal', { action: '{{ route('app.documents.destroy', $document->id) }}', title: '{{ addslashes($document->title) }}' })"
+                                            data-action="{{ route('app.documents.destroy', $document->id) }}"
+                                            data-title="{{ $document->title }}"
+                                            @click="deleteAction = $el.dataset.action; deleteTitle = $el.dataset.title; $dispatch('open-document-delete-modal')"
                                         >Hapus</button>
                                     @endif
                                 </div>
@@ -96,62 +97,34 @@
 
         <div class="mt-4">{{ $documents->appends(request()->query())->links() }}</div>
     </div>
-@endsection
 
-<div
-    x-data="deleteModal()"
-    x-show="open"
-    x-cloak
-    @keydown.escape.window="close()"
-    class="fixed inset-0 z-50 flex items-center justify-center"
->
-    {{-- Backdrop --}}
-    <div class="absolute inset-0 bg-black/50" @click="close()"></div>
-
-    {{-- Dialog --}}
-    <div class="relative z-10 w-full max-w-md rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900">
-        <div class="flex items-start gap-4">
-            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-error-100 dark:bg-error-500/20">
-                <svg class="h-5 w-5 text-error-600 dark:text-error-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-                </svg>
+    <x-ui.modal x-data="{ open: false }" @open-document-delete-modal.window="open = true" :isOpen="false" class="max-w-md">
+        <div class="p-6 sm:p-7">
+            <div class="flex items-start gap-4">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-error-100 dark:bg-error-500/20">
+                    <svg class="h-5 w-5 text-error-600 dark:text-error-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <h3 class="text-base font-semibold text-gray-900 dark:text-white">Hapus Draft Pengajuan</h3>
+                    <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                        Apakah Anda yakin ingin menghapus draft <strong x-text="deleteTitle" class="text-gray-800 dark:text-white"></strong>? Tindakan ini tidak dapat dibatalkan.
+                    </p>
+                </div>
             </div>
-            <div class="flex-1">
-                <h3 class="text-base font-semibold text-gray-900 dark:text-white">Hapus Draft Pengajuan</h3>
-                <p class="mt-1 text-sm text-gray-600 dark:text-gray-400">
-                    Apakah Anda yakin ingin menghapus draft <strong x-text="docTitle" class="text-gray-800 dark:text-white"></strong>? Tindakan ini tidak dapat dibatalkan.
-                </p>
+            <div class="mt-6 flex justify-end gap-3">
+                <button type="button" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5"
+                    @click="open = false">
+                    Batal
+                </button>
+                <form method="POST" :action="deleteAction" @submit="open = false">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-700">Hapus</button>
+                </form>
             </div>
         </div>
-        <div class="mt-6 flex justify-end gap-3">
-            <button @click="close()" type="button" class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5">Batal</button>
-            <form :action="formAction" method="POST">
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="rounded-lg bg-error-600 px-4 py-2 text-sm font-medium text-white hover:bg-error-700">Hapus</button>
-            </form>
-        </div>
+    </x-ui.modal>
     </div>
-</div>
-
-@push('scripts')
-<script>
-    function deleteModal() {
-        return {
-            open: false,
-            formAction: '',
-            docTitle: '',
-            init() {
-                window.addEventListener('open-delete-modal', (e) => {
-                    this.formAction = e.detail.action;
-                    this.docTitle = e.detail.title;
-                    this.open = true;
-                });
-            },
-            close() {
-                this.open = false;
-            }
-        };
-    }
-</script>
-@endpush
+@endsection

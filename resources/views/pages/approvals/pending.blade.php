@@ -32,7 +32,37 @@
                     $approvals       = $doc->approvals->keyBy('step_order');
                     $currentStep     = $doc->current_step_order;
                     $currentStatus   = $doc->current_status->value ?? $doc->current_status;
+                    $rejectHistory   = $doc->approvals
+                        ->filter(fn ($a) => ($a->status->value ?? $a->status) === 'REJECTED')
+                        ->sortBy('created_at')
+                        ->values();
                 @endphp
+
+                {{-- Riwayat Revisi: semua catatan reject sepanjang siklus dokumen ini --}}
+                @if($rejectHistory->isNotEmpty())
+                    <div class="mb-5 rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.02]">
+                        <h4 class="mb-3 text-base font-semibold text-gray-800 dark:text-white/90">Riwayat Revisi</h4>
+                        <div class="space-y-3">
+                            @foreach($rejectHistory as $i => $rejected)
+                                <div class="rounded-lg border border-error-200 bg-error-50 p-3 dark:border-error-800 dark:bg-error-500/10">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="text-xs font-semibold text-error-700 dark:text-error-400">
+                                            Revisi #{{ $i + 1 }} — Step {{ $rejected->step_order }} ({{ $rejected->workflowStep->role->name ?? $rejected->workflowStep->role->code ?? '-' }})
+                                        </span>
+                                        <span class="text-xs text-gray-500 dark:text-gray-400">
+                                            Ditolak oleh {{ $rejected->approver->name ?? '-' }} pada {{ $rejected->approved_at?->format('d/m/Y H:i') ?? '-' }}
+                                        </span>
+                                    </div>
+                                    @if($rejected->notes)
+                                        <p class="mt-2 rounded-lg bg-white px-3 py-2 text-sm text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                            <span class="font-medium">Alasan:</span> {{ $rejected->notes }}
+                                        </p>
+                                    @endif
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
 
                 <div class="grid grid-cols-1 gap-4 xl:grid-cols-12">
                     {{-- PDF Preview --}}
@@ -62,7 +92,7 @@
                                 <p class="mt-1 text-xs font-medium text-gray-800 dark:text-white/90">
                                     {{ $doc->title }}
                                     @if($doc->has_been_rejected)
-                                        <span class="ml-1 inline-flex items-center rounded-full bg-warning-100 px-2 py-0.5 text-[9px] font-semibold text-warning-700 dark:bg-warning-500/20 dark:text-warning-400">🔄 Revisi</span>
+                                        <span class="ml-1 inline-flex items-center rounded-full bg-warning-100 px-2 py-0.5 text-[9px] font-semibold text-warning-700 dark:bg-warning-500/20 dark:text-warning-400">Revisi</span>
                                     @endif
                                 </p>
                                 <p class="mt-0.5 text-[11px] text-gray-500">{{ $doc->organization->name ?? '-' }}</p>
@@ -218,6 +248,82 @@
                     </div>
                 @endif
 
+                {{-- Detail Dokumen + Riwayat Catatan (sama seperti halaman Konfirmasi Dokumen) --}}
+                <div class="mt-5 rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] sm:p-6">
+                    <div class="flex items-start justify-between gap-4">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-800 dark:text-white/90">
+                                {{ $doc->title }}
+                                @if($rejectHistory->isNotEmpty())
+                                    <span class="ml-1 inline-flex items-center rounded-full bg-warning-100 px-2.5 py-0.5 text-xs font-semibold text-warning-700 dark:bg-warning-500/20 dark:text-warning-400">Revisi</span>
+                                @endif
+                            </h3>
+                            <p class="mt-1 text-sm text-gray-500">Status: <span class="font-medium text-gray-700 dark:text-gray-300">{{ $currentStatus }}</span></p>
+                            @if($currentStatus === 'REJECTED' && $rejectHistory->last()?->notes)
+                                <p class="mt-2 max-w-xl whitespace-pre-line rounded-lg bg-error-50 px-3 py-2 text-sm text-error-700 dark:bg-error-500/10 dark:text-error-400">
+                                    <span class="font-medium">Catatan:</span> {{ $rejectHistory->last()->notes }}
+                                </p>
+                            @endif
+                        </div>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+                            <p class="text-xs uppercase text-gray-500">Tipe Dokumen</p>
+                            <p class="mt-1 text-sm font-medium text-gray-800 dark:text-white/90">{{ $doc->documentType->code ?? '-' }} - {{ $doc->documentType->name ?? '-' }}</p>
+                        </div>
+                        <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+                            <p class="text-xs uppercase text-gray-500">Organisasi</p>
+                            <p class="mt-1 text-sm font-medium text-gray-800 dark:text-white/90">{{ $doc->organization->name ?? '-' }}</p>
+                        </div>
+
+                        <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-800 md:col-span-2">
+                            <p class="text-xs uppercase text-gray-500">Riwayat Catatan</p>
+                            @php
+                                $approvalLog = $doc->approvals->sortBy(fn ($a) => [$a->step_order, $a->created_at])->values();
+                            @endphp
+
+                            @if($approvalLog->isNotEmpty())
+                                <div class="mt-2 space-y-2">
+                                    @foreach($approvalLog as $log)
+                                        @php
+                                            $logStatus = $log->status->value ?? $log->status;
+                                            $badgeClass = match ($logStatus) {
+                                                'APPROVED' => 'bg-success-50 text-success-700 dark:bg-success-500/10 dark:text-success-400',
+                                                'REJECTED' => 'bg-error-50 text-error-700 dark:bg-error-500/10 dark:text-error-400',
+                                                default    => 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300',
+                                            };
+                                        @endphp
+                                        <div class="rounded-lg border border-gray-200 p-3 dark:border-gray-700">
+                                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                                <div class="flex items-center gap-2">
+                                                    <span class="text-xs font-semibold text-gray-700 dark:text-gray-200">
+                                                        Step {{ $log->step_order }} — {{ $log->workflowStep->role->name ?? $log->workflowStep->role->code ?? '-' }}
+                                                    </span>
+                                                    <span class="rounded px-2 py-0.5 text-[10px] font-semibold {{ $badgeClass }}">{{ $logStatus }}</span>
+                                                </div>
+                                                <span class="text-[11px] text-gray-500 dark:text-gray-400">
+                                                    {{ $log->approver->name ?? '-' }}
+                                                    @if($log->approved_at)
+                                                        · {{ $log->approved_at->format('d/m/Y H:i') }}
+                                                    @endif
+                                                </span>
+                                            </div>
+                                            @if($log->notes)
+                                                <p class="mt-2 rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                                                    <span class="font-medium">Catatan:</span> {{ $log->notes }}
+                                                </p>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <p class="mt-1 text-sm text-gray-500">Belum ada riwayat approval.</p>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
             @else
                 <div class="rounded-xl border border-dashed border-gray-300 px-4 py-10 text-center text-sm text-gray-500 dark:border-gray-700">
                     Tidak ada approval pending.
@@ -283,10 +389,18 @@
                                     </td>
                                     <td class="px-3 py-2 text-sm text-gray-600 dark:text-gray-300">{{ optional($approval->approved_at)->format('d M Y H:i') }}</td>
                                     <td class="px-3 py-2">
-                                        <a href="{{ route('app.documents.show', $approval->document_id) }}"
-                                            class="inline-flex items-center gap-1 rounded-lg border border-brand-300 px-3 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-500/40 dark:text-brand-400 dark:hover:bg-brand-500/10">
-                                            Detail
-                                        </a>
+                                        <div class="flex items-center gap-2">
+                                            <a href="{{ route('app.documents.show', $approval->document_id) }}"
+                                                class="inline-flex items-center gap-1 rounded-lg border border-brand-300 px-3 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50 dark:border-brand-500/40 dark:text-brand-400 dark:hover:bg-brand-500/10">
+                                                Detail
+                                            </a>
+                                            @if($approval->document?->published_at)
+                                                <a href="{{ route('public.document.show', $approval->document_id) }}" target="_blank"
+                                                    class="inline-flex items-center gap-1 rounded-lg border border-success-300 px-3 py-1 text-xs font-medium text-success-600 hover:bg-success-50 dark:border-success-500/40 dark:text-success-400 dark:hover:bg-success-500/10">
+                                                    Dokumen Resmi
+                                                </a>
+                                            @endif
+                                        </div>
                                     </td>
                                 </tr>
                             @empty
@@ -323,6 +437,9 @@
                 <button type="button" @click="sigTab='upload'"
                     :class="sigTab==='upload' ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600'"
                     class="rounded-lg px-4 py-1.5 text-sm font-medium transition">Upload Gambar</button>
+                <button type="button" @click="sigTab='recent'"
+                    :class="sigTab==='recent' ? 'bg-brand-500 text-white' : 'bg-gray-100 text-gray-600'"
+                    class="rounded-lg px-4 py-1.5 text-sm font-medium transition">Tanda Tangan Terakhir</button>
             </div>
 
             <div class="px-6 py-4">
@@ -346,12 +463,31 @@
                     </div>
                     <img id="approval-sig-preview" src="#" alt="Preview" class="hidden mx-auto max-h-40 rounded-xl border border-gray-200 bg-white">
                 </div>
+
+                <div x-show="sigTab === 'recent'" class="space-y-3">
+                    @if(count($recentApprovalSignatures ?? []) > 0)
+                        <p class="text-xs text-gray-400">Klik salah satu tanda tangan untuk langsung dipakai.</p>
+                        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                            @foreach($recentApprovalSignatures as $sig)
+                                <button type="button" class="approval-recent-sig-item group rounded-lg border-2 border-gray-200 p-2 text-left hover:border-brand-400 dark:border-gray-700"
+                                    data-value="{{ $sig['value'] }}">
+                                    <img src="{{ $sig['value'] }}" alt="Tanda Tangan" class="mx-auto max-h-20 w-full object-contain">
+                                    <p class="mt-1 truncate text-[10px] text-gray-500 group-hover:text-brand-600 dark:text-gray-400">{{ $sig['label'] }}</p>
+                                </button>
+                            @endforeach
+                        </div>
+                    @else
+                        <div class="flex h-32 items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50 px-4 text-center text-sm text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                            Belum ada tanda tangan tersimpan dari approval sebelumnya.
+                        </div>
+                    @endif
+                </div>
             </div>
 
             <div class="flex items-center justify-end gap-3 border-t border-gray-200 px-6 py-4 dark:border-gray-700">
                 <button type="button" id="close-sig-modal-cancel"
                     class="rounded-lg border border-gray-300 px-5 py-2 text-sm text-gray-700 hover:bg-gray-50">Batal</button>
-                <button type="button" id="confirm-sig"
+                <button type="button" id="confirm-sig" x-show="sigTab !== 'recent'"
                     class="rounded-lg bg-brand-500 px-5 py-2 text-sm font-medium text-white hover:bg-brand-600">Gunakan Tanda Tangan</button>
             </div>
         </div>
@@ -419,13 +555,7 @@
                 reader.readAsDataURL(file);
             });
 
-            confirmBtn?.addEventListener('click', () => {
-                let value = '';
-                if (previewImg && !previewImg.classList.contains('hidden') && previewImg.src && previewImg.src !== '#' && previewImg.src !== window.location.href) {
-                    value = previewImg.src;
-                } else if (signaturePad && !signaturePad.isEmpty()) {
-                    value = signaturePad.toDataURL('image/png');
-                }
+            function applyApprovalSignature(value) {
                 if (!value) return;
                 hiddenInput.value = value;
                 if (sigThumb && sigThumbWrap) {
@@ -435,6 +565,22 @@
                 }
                 sigError?.classList.add('hidden');
                 closeModal();
+            }
+
+            confirmBtn?.addEventListener('click', () => {
+                let value = '';
+                if (previewImg && !previewImg.classList.contains('hidden') && previewImg.src && previewImg.src !== '#' && previewImg.src !== window.location.href) {
+                    value = previewImg.src;
+                } else if (signaturePad && !signaturePad.isEmpty()) {
+                    value = signaturePad.toDataURL('image/png');
+                }
+                applyApprovalSignature(value);
+            });
+
+            document.querySelectorAll('.approval-recent-sig-item').forEach(function (el) {
+                el.addEventListener('click', function () {
+                    applyApprovalSignature(this.dataset.value);
+                });
             });
 
             approveForm?.addEventListener('submit', e => {
@@ -448,4 +594,5 @@
         });
     </script>
     @endif
+
 @endpush

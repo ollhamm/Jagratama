@@ -127,7 +127,8 @@ class WorkflowApprovalEngine
                     $step->step_order,
                     $approval->workflowStep->role->name ?? ($approval->workflowStep->role->code ?? '-'),
                     $approver->name,
-                    route('public.signature.show', $publicSig->id)
+                    route('public.signature.show', $publicSig->id),
+                    $approval->workflowStep->role->code ?? null
                 );
             }
 
@@ -300,7 +301,7 @@ class WorkflowApprovalEngine
      * Tempel QR code (link verifikasi) + teks jabatan & nama ke slot tanda tangan
      * milik step_order ini, kalau dokumen punya pemetaan signature_slots untuk step ini.
      */
-    private function embedSlotForStep(Document $document, int $stepOrder, string $jabatan, string $nama, string $verificationUrl): void
+    private function embedSlotForStep(Document $document, int $stepOrder, string $jabatan, string $nama, string $verificationUrl, ?string $roleCode = null): void
     {
         $document->refresh();
         $signatureSlots = $document->signature_slots;
@@ -326,7 +327,8 @@ class WorkflowApprovalEngine
             $slot,
             $jabatan,
             $nama,
-            $verificationUrl
+            $verificationUrl,
+            $roleCode
         );
     }
 

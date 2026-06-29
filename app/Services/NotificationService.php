@@ -27,7 +27,7 @@ class NotificationService
                 $document,
                 $nextRoleId,
                 'APPROVAL_PENDING_REVISION',
-                sprintf('🔄 REVISI — Dokumen "%s" telah diperbaiki dan menunggu approval ulang pada tahap Anda.', $document->title)
+                sprintf('[REVISI] Dokumen "%s" telah diperbaiki dan menunggu approval ulang pada tahap Anda.', $document->title)
             );
             return;
         }

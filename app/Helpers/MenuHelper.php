@@ -23,6 +23,12 @@ class MenuHelper
                 'roles' => ['PENGAJU', 'ADMIN'],
             ],
             [
+                'icon' => 'documents',
+                'name' => 'Dokumen Resmi',
+                'path' => '/app/documents/published',
+                'roles' => [],
+            ],
+            [
                 'icon' => 'task',
                 'name' => 'Approval',
                 'path' => '/app/approvals/pending',
@@ -55,6 +61,12 @@ class MenuHelper
                 'icon' => 'user-profile',
                 'name' => 'User Management',
                 'path' => '/app/users',
+                'roles' => ['ADMIN'],
+            ],
+            [
+                'icon' => 'guide',
+                'name' => 'Kelola Panduan',
+                'path' => '/app/guides',
                 'roles' => ['ADMIN'],
             ],
         ];
@@ -98,7 +110,8 @@ class MenuHelper
             'forms' => 'file-text',
             'upload' => 'upload-cloud',
             'tables' => 'table',
-            'documents' => 'file-text',
+            'documents' => 'check-circle',
+            'guide' => 'book-open',
             'approval' => 'check-square',
             'pages' => 'file',
             'charts' => 'bar-chart-2',

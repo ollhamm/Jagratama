@@ -16,6 +16,10 @@ class PdfSignatureSlotService
     private const KEY_TTD = 'ttd_pengirim';
     private const KEY_NAMA = 'nama_pengirim';
 
+    // Role yang QR-nya ditempel logo Kemenkes di tengah — konsisten dengan tampilan
+    // QR di halaman web (lihat LOGO_QR_ROLES di show.blade.php & public/document.blade.php).
+    private const LOGO_QR_ROLES = ['KA_BAG_AKADEMIK', 'KA_BAG_AKADEMIK_UMUM', 'DIREKTUR'];
+
     /**
      * Cari slot tanda tangan (key ${jabatan_pengirim}, ${ttd_pengirim}, ${nama_pengirim})
      * di halaman TERAKHIR PDF, validasi jumlahnya sesuai $expectedCount, lalu urutkan
@@ -90,7 +94,8 @@ class PdfSignatureSlotService
         array $slot,
         string $jabatanText,
         string $namaText,
-        string $verificationUrl
+        string $verificationUrl,
+        ?string $roleCode = null
     ): void {
         $pdf = new Fpdi('P', 'pt');
         $pageCount = $pdf->setSourceFile($absolutePath);
@@ -102,7 +107,7 @@ class PdfSignatureSlotService
             $pdf->useTemplate($templateId);
 
             if ($i - 1 === $pageInfo['page_index']) {
-                $this->drawSlotOverlay($pdf, $pageInfo, $slot, $jabatanText, $namaText, $verificationUrl);
+                $this->drawSlotOverlay($pdf, $pageInfo, $slot, $jabatanText, $namaText, $verificationUrl, $roleCode);
             }
         }
 
@@ -117,7 +122,8 @@ class PdfSignatureSlotService
         array $slot,
         string $jabatanText,
         string $namaText,
-        string $verificationUrl
+        string $verificationUrl,
+        ?string $roleCode = null
     ): void {
         $pageHeight = $pageInfo['page_height'];
         $toFpdfY = fn (float $pdfY): float => $pageHeight - $pdfY;
@@ -146,16 +152,19 @@ class PdfSignatureSlotService
         $qrSize = 50.0;
         $pdf->Rect($ttdX - 1, $ttdY - $qrSize + 2, $qrSize + 4, $qrSize + 4, 'F');
 
-        $qrPngPath = $this->generateQrPng($verificationUrl);
+        $needsLogo = in_array($roleCode, self::LOGO_QR_ROLES, true);
+        $qrPngPath = $this->generateQrPng($verificationUrl, $needsLogo);
         $pdf->Image($qrPngPath, $ttdX, $ttdY - $qrSize + 4, $qrSize, $qrSize, 'PNG');
         @unlink($qrPngPath);
     }
 
-    private function generateQrPng(string $url): string
+    private function generateQrPng(string $url, bool $withLogo = false): string
     {
         $qrCode = new QrCode(
             data: $url,
-            errorCorrectionLevel: ErrorCorrectionLevel::Medium,
+            // Error correction H (30%) untuk QR berlogo, supaya tetap bisa di-scan
+            // walau sebagian modul tertutup logo — konsisten dengan versi client-side.
+            errorCorrectionLevel: $withLogo ? ErrorCorrectionLevel::High : ErrorCorrectionLevel::Medium,
             size: 300,
             margin: 4,
         );
@@ -165,7 +174,64 @@ class PdfSignatureSlotService
         $tmpPath = sys_get_temp_dir().'/qr_'.uniqid('', true).'.png';
         $result->saveToFile($tmpPath);
 
+        if ($withLogo) {
+            $this->overlayLogoOnPng($tmpPath);
+        }
+
         return $tmpPath;
+    }
+
+    /**
+     * Tempel logo Kemenkes di tengah QR (kotak putih sebagai padding di belakang logo
+     * supaya tidak menyatu dengan modul QR) — pakai GD, sama persis konsepnya dengan
+     * overlayLogoOnCanvas() di JS pada show.blade.php & public/document.blade.php.
+     */
+    private function overlayLogoOnPng(string $qrPngPath): void
+    {
+        $logoPath = public_path('images/logo/kemenkes-logo.png');
+        if (! file_exists($logoPath) || ! function_exists('imagecreatefrompng')) {
+            return;
+        }
+
+        $qrImage = imagecreatefrompng($qrPngPath);
+        $logo = $this->loadImageAnyFormat($logoPath);
+        if (! $qrImage || ! $logo) {
+            return;
+        }
+
+        $qrWidth = imagesx($qrImage);
+        $qrHeight = imagesy($qrImage);
+        $logoSize = (int) round($qrWidth * 0.20);
+        $x = (int) round(($qrWidth - $logoSize) / 2);
+        $y = (int) round(($qrHeight - $logoSize) / 2);
+        $padding = 5;
+
+        $white = imagecolorallocate($qrImage, 255, 255, 255);
+        imagefilledrectangle($qrImage, $x - $padding, $y - $padding, $x + $logoSize + $padding, $y + $logoSize + $padding, $white);
+
+        imagecopyresampled($qrImage, $logo, $x, $y, 0, 0, $logoSize, $logoSize, imagesx($logo), imagesy($logo));
+
+        imagepng($qrImage, $qrPngPath);
+        imagedestroy($qrImage);
+        imagedestroy($logo);
+    }
+
+    /**
+     * Muat gambar tanpa peduli ekstensi file — deteksi format asli dari konten
+     * (mis. kemenkes-logo.png yang ternyata berisi data JPEG, bukan PNG sungguhan).
+     */
+    private function loadImageAnyFormat(string $path): \GdImage|false
+    {
+        $info = @getimagesize($path);
+        $type = $info[2] ?? null;
+
+        return match ($type) {
+            IMAGETYPE_PNG  => imagecreatefrompng($path),
+            IMAGETYPE_JPEG => imagecreatefromjpeg($path),
+            IMAGETYPE_GIF  => imagecreatefromgif($path),
+            IMAGETYPE_WEBP => imagecreatefromwebp($path),
+            default        => false,
+        };
     }
 
     private function findKeyOccurrences(Page $page, string $key): array

@@ -13,6 +13,8 @@ interface DocumentRepositoryInterface
 
     public function paginateCreatedBy(User $user, array $filters = [], int $perPage = 10, string $pageName = 'page'): LengthAwarePaginator;
 
+    public function paginatePublishedForUser(User $user, array $filters = [], int $perPage = 10, string $pageName = 'page'): LengthAwarePaginator;
+
     public function findByIdForUser(string $id, User $user): ?Document;
 
     public function create(array $data): Document;
