@@ -12,22 +12,44 @@ use Smalot\PdfParser\Parser;
 
 class PdfSignatureSlotService
 {
-    private const KEY_JABATAN = 'jabatan_pengirim';
-    private const KEY_TTD = 'ttd_pengirim';
-    private const KEY_NAMA = 'nama_pengirim';
+    private const KEY_JABATAN = 'jabatan';
+    private const KEY_TTD = 'ttd';
+    private const KEY_NAMA = 'nama';
+
+    // Identifier slot Pengaju — dipakai di key ${jabatan_pengaju}, ${ttd_pengaju}, ${nama_pengaju}.
+    public const SLOT_PENGAJU = 'pengaju';
+
+    /**
+     * Identifier slot approver ke-$n (1-based, urutan step_order yang wajib TTD) —
+     * dipakai di key ${jabatan_approver_1}, ${ttd_approver_1}, dst. Angkanya adalah
+     * posisi ke berapa di antara step yang wajib TTD, BUKAN step_order workflow asli,
+     * supaya key di templat PDF tidak perlu tahu step_order internal.
+     */
+    public static function approverSlotId(int $position): string
+    {
+        return 'approver_'.$position;
+    }
 
     // Role yang QR-nya ditempel logo Kemenkes di tengah — konsisten dengan tampilan
     // QR di halaman web (lihat LOGO_QR_ROLES di show.blade.php & public/document.blade.php).
     private const LOGO_QR_ROLES = ['KA_BAG_AKADEMIK', 'KA_BAG_AKADEMIK_UMUM', 'DIREKTUR'];
 
     /**
-     * Cari slot tanda tangan (key ${jabatan_pengirim}, ${ttd_pengirim}, ${nama_pengirim})
-     * di halaman TERAKHIR PDF, validasi jumlahnya sesuai $expectedCount, lalu urutkan
-     * secara baca natural (kiri-atas ke kanan-bawah).
+     * Cari slot tanda tangan berdasarkan IDENTITAS EKSPLISIT di key-nya (mis.
+     * ${jabatan_pengaju}/${ttd_pengaju}/${nama_pengaju} untuk SLOT_PENGAJU,
+     * ${jabatan_approver_1}/${ttd_approver_1}/${nama_approver_1} untuk approverSlotId(1),
+     * dst — lihat $slotIdentifiers). Dicari di SELURUH HALAMAN PDF, jadi slot boleh
+     * tersebar bebas di halaman manapun (mis. pengaju di halaman 2, approver di halaman 5),
+     * karena pemetaan ke penandatangan ditentukan oleh identitas key, bukan urutan fisik
+     * penempatan di dokumen.
      *
-     * @throws DomainException jika jumlah key tidak sesuai $expectedCount
+     * @param  string[]  $slotIdentifiers  daftar identifier, urutan array menentukan urutan
+     *                                     hasil di 'slots' (biasanya: [SLOT_PENGAJU, approverSlotId(1), approverSlotId(2), ...])
+     * @throws DomainException jika salah satu identifier tidak ditemukan tepat 1 kali
+     *                         untuk ketiga key (jabatan/ttd/nama), atau ketiganya tidak
+     *                         berada di halaman yang sama
      */
-    public function extractSlots(string $absolutePath, int $expectedCount): array
+    public function extractSlots(string $absolutePath, array $slotIdentifiers): array
     {
         $parser = new Parser();
         $pdf = $parser->parseFile($absolutePath);
@@ -37,60 +59,67 @@ class PdfSignatureSlotService
             throw new DomainException('PDF tidak memiliki halaman.');
         }
 
-        $lastPageIndex = count($pages) - 1;
-        $lastPage = $pages[$lastPageIndex];
-
-        $jabatanMatches = $this->findKeyOccurrences($lastPage, self::KEY_JABATAN);
-        $ttdMatches = $this->findKeyOccurrences($lastPage, self::KEY_TTD);
-        $namaMatches = $this->findKeyOccurrences($lastPage, self::KEY_NAMA);
-
-        if (count($jabatanMatches) !== $expectedCount
-            || count($ttdMatches) !== $expectedCount
-            || count($namaMatches) !== $expectedCount) {
-            throw new DomainException(sprintf(
-                'Dokumen harus memiliki %d slot tanda tangan (key ${%s}, ${%s}, ${%s}) di halaman terakhir. Ditemukan: jabatan=%d, ttd=%d, nama=%d.',
-                $expectedCount,
-                self::KEY_JABATAN,
-                self::KEY_TTD,
-                self::KEY_NAMA,
-                count($jabatanMatches),
-                count($ttdMatches),
-                count($namaMatches)
-            ));
-        }
-
-        $jabatanSorted = $this->sortByReadingOrder($jabatanMatches);
-        $ttdSorted = $this->sortByReadingOrder($ttdMatches);
-        $namaSorted = $this->sortByReadingOrder($namaMatches);
-
         $slots = [];
-        for ($i = 0; $i < $expectedCount; $i++) {
-            $slots[] = [
-                'jabatan' => $jabatanSorted[$i],
-                'ttd' => $ttdSorted[$i],
-                'nama' => $namaSorted[$i],
+
+        foreach ($slotIdentifiers as $identifier) {
+            $jabatanMatches = [];
+            $ttdMatches = [];
+            $namaMatches = [];
+
+            foreach ($pages as $pageIndex => $page) {
+                $jabatanMatches = array_merge($jabatanMatches, $this->findKeyOccurrences($page, self::KEY_JABATAN.'_'.$identifier, $pageIndex));
+                $ttdMatches = array_merge($ttdMatches, $this->findKeyOccurrences($page, self::KEY_TTD.'_'.$identifier, $pageIndex));
+                $namaMatches = array_merge($namaMatches, $this->findKeyOccurrences($page, self::KEY_NAMA.'_'.$identifier, $pageIndex));
+            }
+
+            if (count($jabatanMatches) !== 1 || count($ttdMatches) !== 1 || count($namaMatches) !== 1) {
+                throw new DomainException(sprintf(
+                    'Slot tanda tangan "%s" harus punya tepat 1 key ${%s_%s}, ${%s_%s}, ${%s_%s} di dokumen. Ditemukan: jabatan=%d, ttd=%d, nama=%d.',
+                    $identifier,
+                    self::KEY_JABATAN, $identifier,
+                    self::KEY_TTD, $identifier,
+                    self::KEY_NAMA, $identifier,
+                    count($jabatanMatches),
+                    count($ttdMatches),
+                    count($namaMatches)
+                ));
+            }
+
+            if ($jabatanMatches[0]['page'] !== $ttdMatches[0]['page']
+                || $jabatanMatches[0]['page'] !== $namaMatches[0]['page']) {
+                throw new DomainException(sprintf(
+                    'Slot tanda tangan "%s" tidak lengkap: key jabatan/ttd/nama-nya harus berada di halaman yang sama.',
+                    $identifier
+                ));
+            }
+
+            $pageIndex = $jabatanMatches[0]['page'];
+            $mediaBox = $pages[$pageIndex]->getDetails()['MediaBox'] ?? [0, 0, 595.28, 841.89];
+
+            $slots[$identifier] = [
+                'page_index' => $pageIndex,
+                'page_width' => (float) $mediaBox[2],
+                'page_height' => (float) $mediaBox[3],
+                'jabatan' => ['x' => $jabatanMatches[0]['x'], 'y' => $jabatanMatches[0]['y']],
+                'ttd' => ['x' => $ttdMatches[0]['x'], 'y' => $ttdMatches[0]['y']],
+                'nama' => ['x' => $namaMatches[0]['x'], 'y' => $namaMatches[0]['y']],
             ];
         }
 
-        $details = $lastPage->getDetails();
-        $mediaBox = $details['MediaBox'] ?? [0, 0, 595.28, 841.89];
-
         return [
-            'page_index' => $lastPageIndex,
-            'page_width' => (float) $mediaBox[2],
-            'page_height' => (float) $mediaBox[3],
             'slots' => $slots,
         ];
     }
 
     /**
-     * Tempel QR code (link verifikasi) + teks jabatan & nama ke 1 slot tertentu
-     * di halaman terakhir PDF. Menimpa file di $absolutePath dengan versi baru
-     * (halaman lain & slot lain dibiarkan apa adanya, termasuk hasil tempel sebelumnya).
+     * Tempel QR code (link verifikasi) + teks jabatan & nama ke 1 slot tertentu, di
+     * halaman manapun slot itu berada (slot menyimpan page_index-nya sendiri, karena
+     * slot lain bisa berada di halaman berbeda). Menimpa file di $absolutePath dengan
+     * versi baru (halaman lain & slot lain dibiarkan apa adanya, termasuk hasil tempel
+     * sebelumnya).
      */
     public function embedSlot(
         string $absolutePath,
-        array $pageInfo,
         array $slot,
         string $jabatanText,
         string $namaText,
@@ -106,8 +135,8 @@ class PdfSignatureSlotService
             $pdf->AddPage($size['orientation'], [$size['width'], $size['height']]);
             $pdf->useTemplate($templateId);
 
-            if ($i - 1 === $pageInfo['page_index']) {
-                $this->drawSlotOverlay($pdf, $pageInfo, $slot, $jabatanText, $namaText, $verificationUrl, $roleCode);
+            if ($i - 1 === $slot['page_index']) {
+                $this->drawSlotOverlay($pdf, $slot, $jabatanText, $namaText, $verificationUrl, $roleCode);
             }
         }
 
@@ -118,14 +147,13 @@ class PdfSignatureSlotService
 
     private function drawSlotOverlay(
         Fpdi $pdf,
-        array $pageInfo,
         array $slot,
         string $jabatanText,
         string $namaText,
         string $verificationUrl,
         ?string $roleCode = null
     ): void {
-        $pageHeight = $pageInfo['page_height'];
+        $pageHeight = $slot['page_height'];
         $toFpdfY = fn (float $pdfY): float => $pageHeight - $pdfY;
 
         $pdf->SetFillColor(255, 255, 255);
@@ -146,9 +174,14 @@ class PdfSignatureSlotService
         $pdf->SetXY($namaX, $namaY - 9);
         $pdf->Cell(220, 12, $namaText, 0, 0, 'L');
 
-        // TTD — tempel gambar QR code (bukan tanda tangan asli)
+        // TTD — tutup dulu placeholder teks aslinya (lebar generik 220pt, sama seperti
+        // jabatan/nama) supaya tidak ada sisa teks ${ttd_...} yang bocor di luar QR kalau
+        // placeholder-nya lebih lebar dari ukuran QR. Baru tempel gambar QR di atasnya
+        // (bukan tanda tangan asli).
         $ttdX = (float) $slot['ttd']['x'];
         $ttdY = $toFpdfY((float) $slot['ttd']['y']);
+        $pdf->Rect($ttdX - 1, $ttdY - 10, 220, 14, 'F');
+
         $qrSize = 50.0;
         $pdf->Rect($ttdX - 1, $ttdY - $qrSize + 2, $qrSize + 4, $qrSize + 4, 'F');
 
@@ -234,7 +267,7 @@ class PdfSignatureSlotService
         };
     }
 
-    private function findKeyOccurrences(Page $page, string $key): array
+    private function findKeyOccurrences(Page $page, string $key, int $pageIndex): array
     {
         $needle = '${'.$key.'}';
         $dataTm = $page->getDataTm();
@@ -244,29 +277,10 @@ class PdfSignatureSlotService
             $tm = $item[0];
             $text = $item[1];
             if (str_contains($text, $needle)) {
-                $matches[] = ['x' => (float) $tm[4], 'y' => (float) $tm[5]];
+                $matches[] = ['page' => $pageIndex, 'x' => (float) $tm[4], 'y' => (float) $tm[5]];
             }
         }
 
         return $matches;
-    }
-
-    /**
-     * Urutkan koordinat secara baca natural: baris atas dulu (y besar -> kecil,
-     * origin PDF di kiri-bawah), dalam baris yang sama urut kiri ke kanan.
-     * Baris dikelompokkan dengan toleransi 10pt.
-     */
-    private function sortByReadingOrder(array $points): array
-    {
-        usort($points, function (array $a, array $b) {
-            $yDiff = $b['y'] - $a['y'];
-            if (abs($yDiff) > 10) {
-                return $yDiff > 0 ? 1 : -1;
-            }
-
-            return $a['x'] <=> $b['x'];
-        });
-
-        return $points;
     }
 }

@@ -14,7 +14,7 @@ class TestUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $password = Hash::make('lancar123');
+        $password = Hash::make('password');
 
         // Lookup roles
         $roles = Role::query()->get()->keyBy('code');
@@ -54,6 +54,10 @@ class TestUserSeeder extends Seeder
             ['email' => 'pengaju.ukm.mb@test.local',         'name' => 'Pengaju UKM MB',              'role' => 'PENGAJU',                   'org' => 'UKM MB'],
             ['email' => 'ketua.ukm.mb@test.local',           'name' => 'Ketua UKM MB',                'role' => 'KETUA_UKM',                 'org' => 'UKM MB'],
             ['email' => 'pembina.ukm.mb@test.local',         'name' => 'Pembina UKM MB',              'role' => 'PEMBINA_UKM',               'org' => 'UKM MB'],
+
+            // ── BLM flow ─────────────────────────────────────────────────────
+            ['email' => 'pengaju.blm@test.local',            'name' => 'Pengaju BLM',                 'role' => 'PENGAJU',                   'org' => 'BLM Poltekkes Kemenkes Yogyakarta'],
+            ['email' => 'ketua.blm@test.local',               'name' => 'Ketua BLM',                   'role' => 'KETUA_BLM',                 'org' => 'BLM Poltekkes Kemenkes Yogyakarta'],
         ];
 
         foreach ($users as $data) {

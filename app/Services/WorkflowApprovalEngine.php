@@ -323,7 +323,6 @@ class WorkflowApprovalEngine
 
         $this->signatureSlots->embedSlot(
             Storage::path($attachment->file_path),
-            $signatureSlots,
             $slot,
             $jabatan,
             $nama,

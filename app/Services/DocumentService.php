@@ -201,10 +201,11 @@ class DocumentService
             ]);
 
             if ($requiredSteps->isNotEmpty()) {
+                // Slot Pengaju tidak perlu label jabatan di atas QR — beda dengan approver lain.
                 $this->embedApproverSlot(
                     $document,
                     self::PENGAJU_STEP_ORDER,
-                    'Pengaju',
+                    '',
                     $document->creator->name ?? $actor->name,
                     route('public.signature.show', $publicSig->id)
                 );
@@ -370,9 +371,10 @@ class DocumentService
     }
 
     /**
-     * Ekstrak & validasi slot tanda tangan dari PDF attachment, petakan ke step_order,
-     * simpan ke documents.signature_slots. Melempar DomainException kalau jumlah key
-     * di PDF tidak sesuai jumlah step yang wajib tanda tangan.
+     * Ekstrak & validasi slot tanda tangan dari PDF attachment lewat key eksplisit
+     * (${jabatan_pengaju}, ${jabatan_approver_1}, dst — lihat PdfSignatureSlotService),
+     * petakan ke step_order, simpan ke documents.signature_slots. Melempar DomainException
+     * kalau ada key yang tidak ditemukan di PDF.
      */
     private function prepareSignatureSlots(Document $document, \Illuminate\Support\Collection $requiredSteps): void
     {
@@ -382,21 +384,25 @@ class DocumentService
         }
 
         $absolutePath = Storage::path($attachment->file_path);
-        // +1 untuk slot Pengaju, yang selalu jadi slot pertama (terpisah dari step_order workflow)
-        $expectedCount = $requiredSteps->count() + 1;
-        $extracted = $this->signatureSlots->extractSlots($absolutePath, $expectedCount);
 
         $stepOrders = array_merge([self::PENGAJU_STEP_ORDER], $requiredSteps->pluck('step_order')->values()->all());
+        $identifiers = array_merge(
+            [PdfSignatureSlotService::SLOT_PENGAJU],
+            array_map(
+                fn (int $position) => PdfSignatureSlotService::approverSlotId($position),
+                range(1, $requiredSteps->count())
+            )
+        );
+
+        $extracted = $this->signatureSlots->extractSlots($absolutePath, $identifiers);
+
         $slots = [];
-        foreach ($extracted['slots'] as $index => $slot) {
-            $slots[] = array_merge($slot, ['step_order' => $stepOrders[$index]]);
+        foreach ($identifiers as $index => $identifier) {
+            $slots[] = array_merge($extracted['slots'][$identifier], ['step_order' => $stepOrders[$index]]);
         }
 
         $document->update([
             'signature_slots' => [
-                'page_index' => $extracted['page_index'],
-                'page_width' => $extracted['page_width'],
-                'page_height' => $extracted['page_height'],
                 'slots' => $slots,
             ],
         ]);
@@ -428,7 +434,6 @@ class DocumentService
 
         $this->signatureSlots->embedSlot(
             $absolutePath,
-            $signatureSlots,
             $slot,
             $jabatan,
             $nama,
@@ -467,12 +472,13 @@ class DocumentService
         }
 
         // Pengaju juga perlu ditempel ulang (slot pertama, sentinel step_order = 0).
+        // Tidak perlu label jabatan di atas QR — beda dengan approver lain.
         if ($document->public_submitter_signature_id && $requiredSteps->isNotEmpty()) {
             $document->loadMissing('creator');
             $this->embedApproverSlot(
                 $document,
                 self::PENGAJU_STEP_ORDER,
-                'Pengaju',
+                '',
                 $document->creator->name ?? '-',
                 route('public.signature.show', $document->public_submitter_signature_id)
             );
