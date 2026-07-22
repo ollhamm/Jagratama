@@ -46,36 +46,50 @@ class WorkflowSeeder extends Seeder
                     'is_active' => true,
                 ]);
 
-                foreach ($stepRoleCodes as $idx => $roleCode) {
-                    $role = $roles->get($roleCode);
-                    if (! $role) {
-                        continue;
-                    }
-
+                foreach ($stepRoleCodes as $idx => $roleCodeOrGroup) {
                     $stepOrder = $idx + 1;
-                    $isRequiredSignature = $this->isStepRequiresSignature(
-                        $organizationType->value,
-                        strtoupper($documentType->code),
-                        $roleCode
+
+                    // Satu posisi bisa punya beberapa role eligible sekaligus (mis. step
+                    // "PJ Kemha Jurusan/Kaprodi/Kajur" — siapa pun dari 3 role ini boleh
+                    // approve, siapa cepat dia dapat). Grup ditulis sebagai array di
+                    // resolveKakLpjFlow()/resolveSuratFlow(); step biasa tetap string tunggal.
+                    $roleCodesAtThisStep = is_array($roleCodeOrGroup) ? $roleCodeOrGroup : [$roleCodeOrGroup];
+
+                    // is_required_signature harus SAMA untuk semua role dalam 1 grup (mereka
+                    // mewakili slot tanda tangan yang sama di PDF) — true kalau SALAH SATU
+                    // role di grup ini butuh TTD menurut aturan asli.
+                    $isRequiredSignature = collect($roleCodesAtThisStep)->contains(
+                        fn ($rc) => $this->isStepRequiresSignature(
+                            $organizationType->value,
+                            strtoupper($documentType->code),
+                            $rc
+                        )
                     );
-                    $workflowStep = WorkflowStep::query()->firstOrCreate(
-                        [
-                            'workflow_id' => $workflow->id,
-                            'step_order' => $stepOrder,
-                        ],
-                        [
-                            'id' => (string) Str::uuid(),
-                            'role_id' => $role->id,
+
+                    foreach ($roleCodesAtThisStep as $roleCode) {
+                        $role = $roles->get($roleCode);
+                        if (! $role) {
+                            continue;
+                        }
+
+                        $workflowStep = WorkflowStep::query()->firstOrCreate(
+                            [
+                                'workflow_id' => $workflow->id,
+                                'step_order' => $stepOrder,
+                                'role_id' => $role->id,
+                            ],
+                            [
+                                'id' => (string) Str::uuid(),
+                                'is_required_signature' => $isRequiredSignature,
+                                'can_reject' => true,
+                            ]
+                        );
+
+                        $workflowStep->update([
                             'is_required_signature' => $isRequiredSignature,
                             'can_reject' => true,
-                        ]
-                    );
-
-                    $workflowStep->update([
-                        'role_id' => $role->id,
-                        'is_required_signature' => $isRequiredSignature,
-                        'can_reject' => true,
-                    ]);
+                        ]);
+                    }
                 }
 
                 // Remove obsolete steps — skip any that already have approvals to avoid FK violation.
@@ -133,7 +147,9 @@ class WorkflowSeeder extends Seeder
             ],
             OrganizationType::HMPS->value => [
                 'KETUA_HMPS',
-                'PJ_MAHASISWA_ALUMNI_JURUSAN',
+                // Satu posisi, 3 role eligible — siapa cepat dia dapat approve (lihat
+                // WorkflowApprovalEngine::approveByApprovalId untuk sibling-skip-nya).
+                ['PJ_MAHASISWA_ALUMNI_JURUSAN', 'KAPRODI', 'KAJUR'],
                 'PRESIDEN_BEM',
                 'KOMISI_B_BLM',
                 'PENANGGUNG_JAWAB_MAHASISWA',
@@ -144,7 +160,9 @@ class WorkflowSeeder extends Seeder
             ],
             OrganizationType::HMJ->value => [
                 'KETUA_HMJ',
-                'PJ_MAHASISWA_ALUMNI_JURUSAN',
+                // Satu posisi, 2 role eligible (tanpa Kaprodi — HMJ di level Jurusan, tidak
+                // ada konsep Prodi di flow ini) — siapa cepat dia dapat approve.
+                ['PJ_MAHASISWA_ALUMNI_JURUSAN', 'KAJUR'],
                 'PRESIDEN_BEM',
                 'KOMISI_B_BLM',
                 'PENANGGUNG_JAWAB_MAHASISWA',
@@ -199,7 +217,9 @@ class WorkflowSeeder extends Seeder
                 ],
                 OrganizationType::HMPS->value => [
                     'KETUA_HMPS',
-                    'PJ_MAHASISWA_ALUMNI_JURUSAN',
+                    // Satu posisi, 3 role eligible — siapa cepat dia dapat approve (sama
+                    // seperti resolveKakLpjFlow() HMPS).
+                    ['PJ_MAHASISWA_ALUMNI_JURUSAN', 'KAPRODI', 'KAJUR'],
                     'PRESIDEN_BEM',
                     'KOMISI_B_BLM',
                     'PENANGGUNG_JAWAB_MAHASISWA',
@@ -208,7 +228,9 @@ class WorkflowSeeder extends Seeder
                 ],
                 OrganizationType::HMJ->value => [
                     'KETUA_HMJ',
-                    'PJ_MAHASISWA_ALUMNI_JURUSAN',
+                    // Satu posisi, 2 role eligible (tanpa Kaprodi — HMJ di level Jurusan, tidak
+                    // ada konsep Prodi di flow ini) — siapa cepat dia dapat approve.
+                    ['PJ_MAHASISWA_ALUMNI_JURUSAN', 'KAJUR'],
                     'PRESIDEN_BEM',
                     'KOMISI_B_BLM',
                     'PENANGGUNG_JAWAB_MAHASISWA',

@@ -5,6 +5,7 @@ namespace App\Repositories\Eloquent;
 use App\Models\Workflow;
 use App\Models\WorkflowStep;
 use App\Repositories\Contracts\WorkflowRepositoryInterface;
+use Illuminate\Support\Collection;
 
 class WorkflowRepository implements WorkflowRepositoryInterface
 {
@@ -26,12 +27,21 @@ class WorkflowRepository implements WorkflowRepositoryInterface
             ->first();
     }
 
-    public function findNextStep(string $workflowId, int $currentStepOrder): ?WorkflowStep
+    public function findNextSteps(string $workflowId, int $currentStepOrder): Collection
     {
-        return WorkflowStep::query()
+        $nextStepOrder = WorkflowStep::query()
             ->where('workflow_id', $workflowId)
             ->where('step_order', '>', $currentStepOrder)
             ->orderBy('step_order')
-            ->first();
+            ->value('step_order');
+
+        if ($nextStepOrder === null) {
+            return collect();
+        }
+
+        return WorkflowStep::query()
+            ->where('workflow_id', $workflowId)
+            ->where('step_order', $nextStepOrder)
+            ->get();
     }
 }

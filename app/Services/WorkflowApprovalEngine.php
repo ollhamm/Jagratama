@@ -40,38 +40,45 @@ class WorkflowApprovalEngine
                 throw new DomainException('Workflow aktif tidak ditemukan untuk tipe organisasi dan tipe dokumen ini.');
             }
 
-            $firstStep = $workflow->steps->first();
-            if (! $firstStep) {
+            if ($workflow->steps->isEmpty()) {
                 throw new DomainException('Workflow tidak memiliki step.');
             }
 
+            // Step pertama bisa punya beberapa role eligible sekaligus (step_order sama,
+            // role_id beda) — mis. "PJ Kemha Jurusan/Kaprodi/Kajur". Ambil SEMUA baris di
+            // step_order terkecil, bukan cuma satu.
+            $firstStepOrder = $workflow->steps->min('step_order');
+            $firstSteps = $workflow->steps->where('step_order', $firstStepOrder)->values();
+
             $document->update([
                 'current_status' => DocumentStatus::SUBMITTED,
-                'current_step_order' => $firstStep->step_order,
+                'current_step_order' => $firstStepOrder,
                 'submitted_at' => now(),
             ]);
 
             $instance = DocumentWorkflowInstance::query()->create([
                 'document_id' => $document->id,
                 'workflow_id' => $workflow->id,
-                'current_step_order' => $firstStep->step_order,
+                'current_step_order' => $firstStepOrder,
                 'status' => DocumentStatus::IN_REVIEW,
                 'started_at' => now(),
             ]);
 
-            $this->approvals->create([
-                'document_id' => $document->id,
-                'workflow_step_id' => $firstStep->id,
-                // placeholder sampai approver aktual melakukan aksi
-                'approved_by' => $document->created_by,
-                'step_order' => $firstStep->step_order,
-                'role_id' => $firstStep->role_id,
-                'status' => ApprovalStatus::PENDING,
-                'notes' => null,
-                'approved_at' => null,
-            ]);
+            foreach ($firstSteps as $firstStep) {
+                $this->approvals->create([
+                    'document_id' => $document->id,
+                    'workflow_step_id' => $firstStep->id,
+                    // placeholder sampai approver aktual melakukan aksi
+                    'approved_by' => $document->created_by,
+                    'step_order' => $firstStep->step_order,
+                    'role_id' => $firstStep->role_id,
+                    'status' => ApprovalStatus::PENDING,
+                    'notes' => null,
+                    'approved_at' => null,
+                ]);
 
-            $this->notifications->notifyDocumentSubmitted($document, $firstStep->role_id);
+                $this->notifications->notifyDocumentSubmitted($document, $firstStep->role_id);
+            }
 
             return $instance;
         });
@@ -132,9 +139,14 @@ class WorkflowApprovalEngine
                 );
             }
 
-            $nextStep = $this->workflows->findNextStep($instance->workflow_id, $step->step_order);
+            // Step ini mungkin punya beberapa role eligible (siapa cepat dia dapat) — role
+            // lain yang masih PENDING di step_order yang sama otomatis dilewati begitu
+            // salah satu approve, lalu pemegang role itu diberi tahu siapa & kapan.
+            $this->skipSiblingApprovals($document, $step->step_order, $approval->id, $approver->name);
 
-            if (! $nextStep) {
+            $nextSteps = $this->workflows->findNextSteps($instance->workflow_id, $step->step_order);
+
+            if ($nextSteps->isEmpty()) {
                 $this->completeDocument($document, $instance);
                 $this->notifications->notifyCompleted($document);
                 Log::info('dokumen_selesai', [
@@ -144,27 +156,31 @@ class WorkflowApprovalEngine
                 return $approval;
             }
 
-            $this->approvals->create([
-                'document_id' => $document->id,
-                'workflow_step_id' => $nextStep->id,
-                'approved_by' => $approver->id,
-                'step_order' => $nextStep->step_order,
-                'role_id' => $nextStep->role_id,
-                'status' => ApprovalStatus::PENDING,
-                'notes' => null,
-                'approved_at' => null,
-            ]);
+            foreach ($nextSteps as $nextStep) {
+                $this->approvals->create([
+                    'document_id' => $document->id,
+                    'workflow_step_id' => $nextStep->id,
+                    'approved_by' => $approver->id,
+                    'step_order' => $nextStep->step_order,
+                    'role_id' => $nextStep->role_id,
+                    'status' => ApprovalStatus::PENDING,
+                    'notes' => null,
+                    'approved_at' => null,
+                ]);
 
-            $this->notifications->notifyApprovalPending($document, $nextStep->role_id);
+                $this->notifications->notifyApprovalPending($document, $nextStep->role_id);
+            }
+
+            $nextStepOrder = $nextSteps->first()->step_order;
 
             $instance->update([
-                'current_step_order' => $nextStep->step_order,
+                'current_step_order' => $nextStepOrder,
                 'status' => DocumentStatus::IN_REVIEW,
             ]);
 
             $document->update([
                 'current_status' => DocumentStatus::IN_REVIEW,
-                'current_step_order' => $nextStep->step_order,
+                'current_step_order' => $nextStepOrder,
             ]);
 
             Log::info('approval_dilakukan', [
@@ -206,6 +222,20 @@ class WorkflowApprovalEngine
                 'notes' => $notes,
                 'approved_at' => now(),
             ]);
+
+            // Role lain yang masih PENDING di step_order yang sama (kalau step ini punya
+            // beberapa role eligible) ikut dilewati — dokumennya sudah REJECTED, tidak perlu
+            // ada approval menggantung.
+            DocumentApproval::query()
+                ->where('document_id', $document->id)
+                ->where('step_order', $step->step_order)
+                ->where('status', ApprovalStatus::PENDING)
+                ->where('id', '!=', $approval->id)
+                ->update([
+                    'status' => ApprovalStatus::SKIPPED,
+                    'notes' => 'Dokumen direject melalui role lain di step yang sama.',
+                    'approved_at' => now(),
+                ]);
 
             $instance->update([
                 'status' => DocumentStatus::REJECTED,
@@ -329,6 +359,34 @@ class WorkflowApprovalEngine
             $verificationUrl,
             $roleCode
         );
+    }
+
+    /**
+     * Kalau step_order ini punya beberapa role eligible (mis. "PJ Kemha Jurusan/Kaprodi/
+     * Kajur"), begitu satu role approve, role lain yang masih PENDING di step_order yang
+     * sama otomatis dilewati (SKIPPED) dan pemegangnya diberi tahu siapa & kapan yang
+     * approve — supaya tidak ada dua orang approve step yang sama.
+     */
+    private function skipSiblingApprovals(Document $document, int $stepOrder, string $approvedApprovalId, string $approverName): void
+    {
+        $siblings = DocumentApproval::query()
+            ->where('document_id', $document->id)
+            ->where('step_order', $stepOrder)
+            ->where('status', ApprovalStatus::PENDING)
+            ->where('id', '!=', $approvedApprovalId)
+            ->get();
+
+        $approvedAt = now();
+
+        foreach ($siblings as $sibling) {
+            $sibling->update([
+                'status' => ApprovalStatus::SKIPPED,
+                'notes' => sprintf('Otomatis dilewati — sudah disetujui oleh %s.', $approverName),
+                'approved_at' => $approvedAt,
+            ]);
+
+            $this->notifications->notifyApprovalTakenByPeer($document, $sibling->role_id, $approverName, $approvedAt);
+        }
     }
 
     private function completeDocument(Document $document, DocumentWorkflowInstance $instance): void

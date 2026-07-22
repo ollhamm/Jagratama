@@ -40,6 +40,26 @@ class NotificationService
         );
     }
 
+    /**
+     * Kirim ke pemegang role lain yang eligible di step yang sama (mis. Kaprodi/Kajur saat
+     * PJ Kemha Jurusan yang approve duluan) — memberi tahu step ini sudah selesai lewat
+     * role lain, tidak perlu approve lagi.
+     */
+    public function notifyApprovalTakenByPeer(Document $document, string $roleId, string $approverName, \DateTimeInterface $approvedAt): void
+    {
+        $this->notifyRoleUsers(
+            $document,
+            $roleId,
+            'APPROVAL_TAKEN_BY_PEER',
+            sprintf(
+                'Dokumen "%s" pada tahap ini sudah disetujui oleh %s pada %s. Anda tidak perlu melakukan approval lagi.',
+                $document->title,
+                $approverName,
+                $approvedAt->format('d M Y H:i')
+            )
+        );
+    }
+
     public function notifyRejected(Document $document): void
     {
         SystemNotification::query()->create([

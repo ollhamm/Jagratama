@@ -20,8 +20,17 @@
             $currentStatus = $document->current_status->value ?? $document->current_status;
             // Ambil instance terakhir (baik finished maupun aktif) agar step tetap tampil saat rejected/completed
             $latestInstance = $document->workflowInstances->sortByDesc('started_at')->first();
-            $workflowSteps = $latestInstance?->workflow?->steps?->sortBy('step_order') ?? collect();
-            $approvals = $document->approvals->keyBy('step_order');
+            // 1 step_order bisa punya beberapa role eligible (mis. PJ Mahasiswa dan Alumni
+            // Jurusan / Kaprodi / Kajur — role-nya tetap terpisah, cuma boleh approve step yang
+            // sama). WorkflowStep::dedupeForTimeline() gabungkan jadi 1 entri per step_order.
+            $workflowSteps = \App\Models\WorkflowStep::dedupeForTimeline($latestInstance?->workflow?->steps ?? collect());
+            // Kalau ada beberapa approval di step_order yang sama (role lain yang SKIPPED
+            // karena kalah cepat), utamakan yang APPROVED/REJECTED supaya timeline tidak
+            // salah menampilkan baris yang cuma SKIPPED.
+            $approvalStatusPriority = ['PENDING' => 0, 'SKIPPED' => 1, 'REJECTED' => 2, 'APPROVED' => 3];
+            $approvals = $document->approvals
+                ->sortBy(fn ($a) => $approvalStatusPriority[$a->status->value ?? $a->status] ?? 0)
+                ->keyBy('step_order');
             $currentStep = $document->current_step_order;
             // Riwayat semua reject sepanjang siklus dokumen ini (bisa lebih dari satu, termasuk di step yang sama)
             $rejectHistory = $document->approvals
@@ -304,7 +313,7 @@
                                 </div>
                                 <div class="mt-2 text-center">
                                     <p class="text-xs font-medium {{ $isCurrent ? 'text-brand-600 dark:text-brand-400' : ($isCompleted ? 'text-success-600 dark:text-success-400' : ($isRejected ? 'text-error-600 dark:text-error-400' : 'text-gray-500 dark:text-gray-400')) }}">
-                                        {{ $step->role->name ?? $step->role->code ?? 'Step '.$step->step_order }}
+                                        {{ $step->display_role_name ?? $step->role->name ?? $step->role->code ?? 'Step '.$step->step_order }}
                                     </p>
                                     @if($approval)
                                         <p class="mt-0.5 text-[10px] text-gray-400">{{ $approval->approver->name ?? '-' }}</p>

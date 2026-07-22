@@ -4,6 +4,7 @@ namespace App\Repositories\Contracts;
 
 use App\Models\Workflow;
 use App\Models\WorkflowStep;
+use Illuminate\Support\Collection;
 
 interface WorkflowRepositoryInterface
 {
@@ -11,5 +12,10 @@ interface WorkflowRepositoryInterface
 
     public function findStep(string $workflowId, int $stepOrder): ?WorkflowStep;
 
-    public function findNextStep(string $workflowId, int $currentStepOrder): ?WorkflowStep;
+    /**
+     * Semua WorkflowStep di step_order TERKECIL yang lebih besar dari $currentStepOrder —
+     * bisa lebih dari 1 baris kalau step itu punya beberapa role eligible (lihat
+     * WorkflowSeeder untuk contoh grup role).
+     */
+    public function findNextSteps(string $workflowId, int $currentStepOrder): Collection;
 }

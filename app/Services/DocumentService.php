@@ -367,7 +367,10 @@ class DocumentService
             return collect();
         }
 
-        return $workflow->steps->where('is_required_signature', true)->sortBy('step_order')->values();
+        // unique('step_order') — kalau 1 step_order punya beberapa role eligible (mis. "PJ
+        // Kemha Jurusan/Kaprodi/Kajur"), tetap dihitung SATU slot tanda tangan di PDF, bukan
+        // satu slot per role (cuma satu dari mereka yang akan benar-benar tanda tangan).
+        return $workflow->steps->where('is_required_signature', true)->sortBy('step_order')->unique('step_order')->values();
     }
 
     /**
