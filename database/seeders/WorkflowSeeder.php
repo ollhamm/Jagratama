@@ -46,6 +46,12 @@ class WorkflowSeeder extends Seeder
                     'is_active' => true,
                 ]);
 
+                // Kombinasi (step_order, role_id) yang valid menurut definisi TERBARU —
+                // dipakai untuk membersihkan baris lama yang jadi nyasar kalau ada step baru
+                // disisipkan di tengah (semua role sesudahnya geser posisi, baris lamanya
+                // sendiri tidak otomatis hilang kalau cuma dicek "posisi di luar rentang").
+                $validStepRoleCombos = [];
+
                 foreach ($stepRoleCodes as $idx => $roleCodeOrGroup) {
                     $stepOrder = $idx + 1;
 
@@ -72,6 +78,8 @@ class WorkflowSeeder extends Seeder
                             continue;
                         }
 
+                        $validStepRoleCombos[] = $stepOrder.':'.$role->id;
+
                         $workflowStep = WorkflowStep::query()->firstOrCreate(
                             [
                                 'workflow_id' => $workflow->id,
@@ -92,12 +100,19 @@ class WorkflowSeeder extends Seeder
                     }
                 }
 
-                // Remove obsolete steps — skip any that already have approvals to avoid FK violation.
+                // Hapus baris step lama yang kombinasi (step_order, role_id)-nya sudah tidak
+                // valid lagi menurut definisi saat ini — termasuk role yang "geser posisi"
+                // karena ada step baru disisipkan di tengah, bukan cuma yang posisinya di
+                // luar rentang. Skip yang sudah punya approval, supaya tidak melanggar FK.
                 WorkflowStep::query()
                     ->where('workflow_id', $workflow->id)
-                    ->where('step_order', '>', count($stepRoleCodes))
                     ->whereDoesntHave('approvals')
-                    ->delete();
+                    ->get()
+                    ->each(function (WorkflowStep $step) use ($validStepRoleCombos) {
+                        if (! in_array($step->step_order.':'.$step->role_id, $validStepRoleCombos, true)) {
+                            $step->delete();
+                        }
+                    });
             }
         }
     }
