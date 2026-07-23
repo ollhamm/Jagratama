@@ -267,18 +267,42 @@ class PdfSignatureSlotService
         };
     }
 
+    /**
+     * Cari placeholder ${key} di halaman. PDF hasil export Word/LibreOffice sering
+     * memecah 1 placeholder jadi beberapa potongan teks terpisah (font-run/kerning
+     * berbeda) walau di mata manusia kelihatan menyatu — jadi tidak cukup cek satu
+     * potongan teks mengandung needle utuh, harus digabung dulu lintas potongan
+     * sebelum dicari, baru dipetakan balik ke potongan mana yang jadi awalnya.
+     */
     private function findKeyOccurrences(Page $page, string $key, int $pageIndex): array
     {
         $needle = '${'.$key.'}';
         $dataTm = $page->getDataTm();
         $matches = [];
 
-        foreach ($dataTm as $item) {
-            $tm = $item[0];
-            $text = $item[1];
-            if (str_contains($text, $needle)) {
+        $combinedText = '';
+        $runStartOffsets = []; // offset di $combinedText => index run yang mulai di situ
+        foreach ($dataTm as $i => $item) {
+            $runStartOffsets[mb_strlen($combinedText)] = $i;
+            $combinedText .= $item[1];
+        }
+
+        $searchFrom = 0;
+        while (($pos = mb_strpos($combinedText, $needle, $searchFrom)) !== false) {
+            $runIdx = null;
+            foreach ($runStartOffsets as $offset => $idx) {
+                if ($offset > $pos) {
+                    break;
+                }
+                $runIdx = $idx;
+            }
+
+            if ($runIdx !== null) {
+                $tm = $dataTm[$runIdx][0];
                 $matches[] = ['page' => $pageIndex, 'x' => (float) $tm[4], 'y' => (float) $tm[5]];
             }
+
+            $searchFrom = $pos + mb_strlen($needle);
         }
 
         return $matches;
